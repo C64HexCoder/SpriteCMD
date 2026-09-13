@@ -20,7 +20,7 @@
     <AutoLaunchName>sprite_cmd.prg</AutoLaunchName>
     <NoSingleFileBuild>False</NoSingleFileBuild>
     <CreatedWithVersion />
-    <HasGitRepo>False</HasGitRepo>
+    <HasGitRepo>True</HasGitRepo>
     <OutputBinDir />
     <GitIgnoreList />
     <UsingKickAssembler>False</UsingKickAssembler>

@@ -324,18 +324,24 @@ endOfNum
 notDigit
         rts
 
-multipyBy10
-        stx tmpX
-        ;asl $fb
-        ;rol $fb
-        
+smartMulBy10
+        ; 1. הכפלה ב-2 (N * 2)
+        asl $fb
+        rol $fc
+
+        ; 2. שמירת (N * 2) בזיכרון זמני
         lda $fb
         sta tmpFB
         lda $fc
         sta tmpFB+1
 
-        ldx #$09
-mulLoop
+        ; 3. שתי הזזות נוספות של הערך הקיים כדי להגיע ל-(N * 8)
+        asl $fb
+        rol $fc         ; כעת זה N * 4
+        asl $fb
+        rol $fc         ; כעת זה N * 8
+
+        ; 4. חיבור: (N * 8) + (N * 2) = N * 10
         clc
         lda $fb
         adc tmpFB
@@ -343,38 +349,10 @@ mulLoop
         lda $fc
         adc tmpFB+1
         sta $fc
-        dex
-        bne mulLoop
-        ldx tmpX
+
         rts
 
-smartMulBy10
-        stx tmpX
-        lda $fb
-        sta tmpFB
-        lda $fc
-        sta tmpFB+1
-        
-        ldx #$03
-mulBy8
-        asl $fb
-        rol $fc
-        dex
-        bne mulBy8
 
-        asl tmpFB
-        rol tmpFB+1
-
-        clc
-        lda tmpFB
-        adc $fb
-        sta $fb
-        lda tmpFB+1
-        adc $fc
-        sta $fc
-        
-        ldx tmpX
-        rts
 
         ; divide A by 10
         ; result in x reminder in A
