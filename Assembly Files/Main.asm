@@ -366,6 +366,41 @@ divLoop
         jmp divLoop
 endDiv
         rts
+
+; ================================================================
+; Routine: devideBy10_Binary
+; Divides an 8-bit unsigned integer by 10
+; Inputs:  A = Dividend (0 - 255)
+; Outputs: X = Quotient (A / 10)
+;          A = Remainder (A % 10)
+; Modifies: A, X, Y, Flags (N, Z, C)
+; ================================================================
+
+devideBy10_Binary
+        ldx #$08            ; Loop counter: 8 bits to process
+        asl                 ; Shift dividend MSB out into Carry flag
+        tay                 ; Y holds the remaining bits of the dividend / emerging quotient
+        lda #$00            ; Clear accumulator (will accumulate the remainder)
+
+@divLoop
+        rol                 ; Shift previous Carry into remainder (A), multiplying remainder by 2
+        cmp #10             ; Compare accumulated remainder against divisor (10)
+        bcc @skipSub        ; If A < 10, Carry is cleared; skip subtraction
+        sbc #10             ; If A >= 10, Carry is set; subtract divisor (Carry remains 1)
+
+@skipSub
+        tya                 ; Bring dividend / quotient back into accumulator
+        rol                 ; Shift comparison result (Carry: 0 or 1) into bit 0 of quotient,
+                            ; while simultaneously ejecting the next dividend bit into Carry
+        tay                 ; Save updated quotient back into Y
+        dex                 ; Decrement bit loop counter
+        bne @divLoop        ; Repeat for all 8 bits
+
+        tya                 ; Transfer final completed quotient to A
+        tax                 ; Move quotient into X (X = A / 10)
+                            ; A now retains the remainder from the division (A = A % 10)
+        rts
+
 numToAscii
         ; convert Int in A to ascii Number
         ; A = number to convertImgNumToAddress
@@ -373,7 +408,7 @@ numToAscii
 
         ldy #$00
 convertLoop
-        jsr devideBy10
+        jsr devideBy10_Binary
         
         clc
         adc #$30
