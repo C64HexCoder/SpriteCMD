@@ -1,0 +1,462 @@
+##{0:0:0:Main.prg}C:\Users\yossi\OneDrive\מסמכים\Commodore 64 projects\Sprite CMD\Assembly Files\Main.asm
+
+DIGIT_COUNT = $fd
+SPR_ADDR    = $FB
+TXTTAB      = $2B
+LINE_NUMBER = $f9
+NEXT_LINE   = $F7
+BYTES_IN_LINE = $09
+NUM_OF_LINES = 63/BYTES_IN_LINE
+CHAROUT         = $FFD2
+
+        *=$8000
+cruncher
+        ldx $7a
+        ldy #$00
+readLoop
+        lda spriteString,y
+        beq spriteCMDFound
+        cmp $0200,x
+        bne notSprite
+        inx
+        iny
+        jmp readLoop
+
+spriteCMDFound 
+        lda #$00
+        sta SPR_ADDR
+        sta SPR_ADDR+1
+skipSpaces
+        lda $0200,x
+        cmp #$00
+        beq endOfCMD
+        cmp #$20
+        beq skipSpace
+        cmp #'?'
+        bne chkTyp
+        jsr printHelp
+        jmp endOfCMD
+chkTyp
+        jsr checkType
+endOfCMD
+        jmp $a474
+
+skipSpace
+        inx
+        bne skipSpaces
+
+notSprite
+
+        ldx $7a
+        jmp $a57c
+
+checkType
+        lda $0200,x
+        cmp #'$'
+        bne itsNum
+        jsr parseHex
+        jmp decodeDigit
+itsNum
+        jsr parseDec
+decodeDigit
+        lda $fc
+        bne convertToData
+        jsr convertImgNumToAddress
+convertToData
+        jsr sprDataToBasic
+
+finisheDecoding
+numError
+perseError
+        rts
+convertImgNumToAddress
+        ldy #$00
+        ;sty $fc
+        clc
+        ldx #$06
+lsrLoop
+        asl $fb
+        rol $fc
+        dex
+        bne lsrLoop
+        rts
+
+sprDataToBasic
+        ; movie basic line number 1000 to LINE_NUMBER
+        lda #$e8
+        sta LINE_NUMBER
+        lda #$03
+        sta LINE_NUMBER+1
+newLine    
+        ; save the placeholder for the next basic line
+        lda TXTTAB
+        sta NEXT_LINE
+        lda TXTTAB+1
+        sta NEXT_LINE+1
+  
+
+        ldy #$02
+        ldx #$00
+
+     
+        lda LINE_NUMBER
+        STA (TXTTAB),y
+        iny
+        lda LINE_NUMBER+1
+        sta (TXTTAB),y
+        iny
+
+        jsr incLineNum
+
+        lda #$83        ;DATA token
+        sta (TXTTAB),y
+        iny
+
+        lda #$20
+        sta (TXTTAB),y
+        iny
+
+copyDataloop
+        lda (SPR_ADDR,X)
+       
+        jsr numToAscii
+        jsr incSprData
+        dec bytesInLine
+        beq endOfLine
+        lda #$2c
+        sta (TXTTAB),y
+        iny
+        jmp copyDataloop
+
+endOfLine
+        lda #BYTES_IN_LINE
+        sta bytesInLine
+
+        ; put 00 at end of line
+        lda #$00
+        sta (TXTTAB),y
+        iny
+        
+        tya
+        ldy #$00
+        clc
+        adc TXTTAB
+        sta TXTTAB
+     
+        lda TXTTAB+1
+        adc #$00
+        sta TXTTAB+1
+        
+        ldy #$00
+        lda TXTTAB
+        sta (NEXT_LINE),y
+        iny
+        lda TXTTAB+1
+        sta (NEXT_LINE),y
+
+
+        dec dataLines
+        bne newLine
+        
+        ldy #$00
+        lda #$00
+        sta (TXTTAB),y
+        iny
+        sta (TXTTAB),y
+        
+        clc
+        lda TXTTAB
+        adc #$02
+        sta $2d
+        lda TXTTAB+1
+        adc #$00
+        sta $2e
+
+        lda #$01
+        sta TXTTAB
+        lda #$08
+        sta TXTTAB+1
+ 
+        lda #NUM_OF_LINES
+        sta dataLines
+
+        rts
+
+incSprData
+        clc
+        lda SPR_ADDR
+        adc #$01
+        sta SPR_ADDR
+        lda SPR_ADDR+1
+        adc #00
+        sta SPR_ADDR+1
+        rts
+        
+incLineNum
+        clc
+        lda LINE_NUMBER
+        adc #$0A
+        sta LINE_NUMBER
+        lda LINE_NUMBER+1
+        adc #00
+        sta LINE_NUMBER+1
+        rts      
+checkIfNum
+        cmp #'0'
+        bcc notANumber
+        cmp #'9'+1
+        bcs notANumber     
+        rts
+notANumber
+        lda #$00      // return 1 if it's not a number
+        rts
+
+checkIfAlpha
+        cmp #'a'
+        bcc notAlpha    
+        cmp #'f'+1
+        bcs notAlpha
+        rts
+notAlpha
+        lda #$00    
+        rts
+checkIfHex
+        jsr checkIfNum
+        beq returnTrue
+        jsr checkIfAlpha
+        beq returnTrue
+        lda #$00   
+        rts
+returnTrue
+        rts
+
+parseHex
+        inx
+        lda $0200,x
+       ; beq endOfHex
+        ;cmp #$20
+        ;beq endOfHex
+
+        cmp #'0'                ; compare to '0' char
+        bcc paseHexError        ; if less then '0' then error
+
+        cmp #$40             ;compare to 'A' if bigger then not a digit
+        bcs hexNum
+
+        pha
+        ldy #$00
+@shiftLeft        
+        asl $fb
+        rol $fc
+        iny
+        cpy #$04
+        bne @shiftLeft
+
+        pla
+   
+        sec
+        sbc #'0'
+        ora $fb
+        sta $fb
+              
+        jmp parseHex
+    
+hexNum
+        cmp #$41                        ; Is it smaller then 'A'
+        bcc paseHexError                ; if so then error
+        cmp #$46+1                      ; if its greater the
+        bcs paseHexError
+
+        pha
+        ldy #$00
+shiftLeft        
+        asl $fb
+        rol $fc
+        iny
+        cpy #$04
+        bne shiftLeft
+        pla
+
+        sec
+        sbc #$41-10
+        ora $fb
+        sta $fb
+
+        jmp parseHex
+
+endOfHex
+paseHexError
+       rts
+parseDec
+        lda #$00
+        sta $fb
+        sta $fc
+readNumber
+        lda $0200,x
+        cmp #$00
+        beq endOfNum
+        cmp #$20
+        beq readNumber
+
+        cmp #'0'                ; compare to '0' char
+        bcc notDigit        ; if less then '0' then error
+
+        cmp #$40            ;compare to 'A' if bigger then not a digit
+        bcs notDigit
+
+        sec
+        sbc #$30
+        
+        pha
+        jsr smartMulBy10
+        pla
+
+        clc
+        adc $fb
+        sta $fb
+        lda $fc
+        adc #$00
+        sta $fc
+        inx
+        bne readNumber
+
+endOfNum        
+notDigit
+        rts
+
+multipyBy10
+        stx tmpX
+        ;asl $fb
+        ;rol $fb
+        
+        lda $fb
+        sta tmpFB
+        lda $fc
+        sta tmpFB+1
+
+        ldx #$09
+mulLoop
+        clc
+        lda $fb
+        adc tmpFB
+        sta $fb
+        lda $fc
+        adc tmpFB+1
+        sta $fc
+        dex
+        bne mulLoop
+        ldx tmpX
+        rts
+
+smartMulBy10
+        stx tmpX
+        lda $fb
+        sta tmpFB
+        lda $fc
+        sta tmpFB+1
+        
+        ldx #$03
+mulBy8
+        asl $fb
+        rol $fc
+        dex
+        bne mulBy8
+
+        asl tmpFB
+        rol tmpFB+1
+
+        clc
+        lda tmpFB
+        adc $fb
+        sta $fb
+        lda tmpFB+1
+        adc $fc
+        sta $fc
+        
+        ldx tmpX
+        rts
+
+        ; divide A by 10
+        ; result in x reminder in A
+
+devideBy10
+        ldx #$00
+divLoop
+        cmp #$0a
+        bcc endDiv
+        inx
+        sec
+        sbc #$0a
+        jmp divLoop
+endDiv
+        rts
+numToAscii
+        ; convert Int in A to ascii Number
+        ; A = number to convertImgNumToAddress
+        sty tmpY
+
+        ldy #$00
+convertLoop
+        jsr devideBy10
+        
+        clc
+        adc #$30
+        
+        pha
+        iny
+
+        txa
+        cmp #$00
+        bne convertLoop
+
+        tya
+        tax
+        ldy tmpY
+@printLoop
+        pla
+        sta (TXTTAB),y
+        iny
+        dex
+        bne @printLoop
+             
+        rts
+
+        *=$c000
+init
+        lda #<cruncher
+        sta $304
+        lda #>cruncher
+        sta $305
+        rts
+
+printHelp
+        ldx #$00
+printLoop
+        lda helpText,x
+        beq endString
+        jsr CHAROUT
+        inx
+        bne printLoop
+endString
+        rts
+        
+spriteString
+        byte "sprite",0
+tmpY    byte 0
+tmpX    byte 0
+tmpFB   byte 0,0
+
+bytesInLine byte BYTES_IN_LINE
+dataLines byte NUM_OF_LINES
+
+helpText
+        byte $0D            ; ירידת שורה (CR)[cite: 6]
+        byte "syntax: sprite [frame/addr]"
+        byte $0D
+        byte "hex: $c0 or $3000"
+        byte $0D
+        byte "dec: 192 or 12288"
+        byte $0D, $00
+
+
+
