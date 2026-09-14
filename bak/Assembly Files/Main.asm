@@ -3,8 +3,9 @@ SPR_ADDR    = $FB
 TXTTAB      = $2B
 LINE_NUMBER = $f9
 NEXT_LINE   = $F7
-BYTES_IN_LINE = $08
-NUM_OF_LINES = 64/BYTES_IN_LINE
+BYTES_IN_LINE = $09
+NUM_OF_LINES = 63/BYTES_IN_LINE
+CHAROUT         = $FFD2
 
         *=$8000
 cruncher
@@ -26,11 +27,16 @@ spriteCMDFound
 skipSpaces
         lda $0200,x
         cmp #$00
-        beq @endOfLine
+        beq endOfCMD
         cmp #$20
         beq skipSpace
+        cmp #'?'
+        bne chkTyp
+        jsr printHelp
+        jmp endOfCMD
+chkTyp
         jsr checkType
-@endOfLine
+endOfCMD
         jmp $a474
 
 skipSpace
@@ -67,7 +73,7 @@ convertImgNumToAddress
         clc
         ldx #$06
 lsrLoop
-        rol $fb
+        asl $fb
         rol $fc
         dex
         bne lsrLoop
@@ -134,9 +140,7 @@ endOfLine
         clc
         adc TXTTAB
         sta TXTTAB
-        php
-        iny
-        plp
+     
         lda TXTTAB+1
         adc #$00
         sta TXTTAB+1
@@ -302,7 +306,7 @@ readNumber
         sbc #$30
         
         pha
-        jsr multipyBy10
+        jsr smartMulBy10
         pla
 
         clc
@@ -318,18 +322,24 @@ endOfNum
 notDigit
         rts
 
-multipyBy10
-        stx tmpX
-        ;asl $fb
-        ;rol $fb
-        
+smartMulBy10
+        ; 1. הכפלה ב-2 (N * 2)
+        asl $fb
+        rol $fc
+
+        ; 2. שמירת (N * 2) בזיכרון זמני
         lda $fb
         sta tmpFB
         lda $fc
         sta tmpFB+1
 
-        ldx #$09
-mulLoop
+        ; 3. שתי הזזות נוספות של הערך הקיים כדי להגיע ל-(N * 8)
+        asl $fb
+        rol $fc         ; כעת זה N * 4
+        asl $fb
+        rol $fc         ; כעת זה N * 8
+
+        ; 4. חיבור: (N * 8) + (N * 2) = N * 10
         clc
         lda $fb
         adc tmpFB
@@ -337,10 +347,10 @@ mulLoop
         lda $fc
         adc tmpFB+1
         sta $fc
-        dex
-        bne mulLoop
-        ldx tmpX
+
         rts
+
+
 
         ; divide A by 10
         ; result in x reminder in A
@@ -356,6 +366,39 @@ divLoop
         jmp divLoop
 endDiv
         rts
+
+; ================================================================
+; Routine: devideBy10_Binary
+; Inputs:  A = Dividend (0 - 255)
+; Outputs: X = Quotient (A / 10), A = Remainder (A % 10)
+; Preserves: Y (Crucial for numToAscii stack counter!)
+; ================================================================
+devideBy10_Binary
+        sta tmpFB           ; Store dividend in temporary variable
+        lda #$00            ; Clear accumulator (remainder)
+        ldx #$08            ; 8 bits loop counter
+
+@divLoop
+        asl tmpFB           ; Shift MSB of dividend out to Carry
+        rol tmpFB+1
+        rol                 ; Rotate Carry into remainder (A)
+        cmp #10             ; Is remainder >= 10?
+        bcc @skipSub
+        sbc #10             ; Subtract 10 (Carry becomes/remains 1)
+
+@skipSub
+        dex
+        bne @divLoop
+
+        ; At this point:
+        ; A holds the Remainder (0 - 9)
+        ; tmpFB holds the Quotient (rotated in via ASL/Carry)
+        ; But we must push the last comparison bit into tmpFB:
+        rol tmpFB           ; Rotate final Carry into quotient
+        rol tmpFB+1
+                     ; A = Remainder
+        rts
+
 numToAscii
         ; convert Int in A to ascii Number
         ; A = number to convertImgNumToAddress
@@ -378,12 +421,12 @@ convertLoop
         tya
         tax
         ldy tmpY
-printLoop
+@printLoop
         pla
         sta (TXTTAB),y
         iny
         dex
-        bne printLoop
+        bne @printLoop
              
         rts
 
@@ -395,7 +438,17 @@ init
         sta $305
         rts
 
-
+printHelp
+        ldx #$00
+printLoop
+        lda helpText,x
+        beq endString
+        jsr CHAROUT
+        inx
+        bne printLoop
+endString
+        rts
+        
 spriteString
         byte "sprite",0
 tmpY    byte 0
@@ -405,5 +458,13 @@ tmpFB   byte 0,0
 bytesInLine byte BYTES_IN_LINE
 dataLines byte NUM_OF_LINES
 
+helpText
+        byte $0D            ; ירידת שורה (CR)[cite: 6]
+        byte "syntax: sprite [frame/addr]"
+        byte $0D
+        byte "hex: $c0 or $3000"
+        byte $0D
+        byte "dec: 192 or 12288"
+        byte $0D, $00
 
 

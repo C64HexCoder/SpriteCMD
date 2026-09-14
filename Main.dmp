@@ -117,7 +117,7 @@
 00117  808F             COPYDATALOOP 
 00118  808F  A1 FB                 LDA (SPR_ADDR,X)
 00119  8091                        
-00120  8091  20 D9 81              JSR NUMTOASCII
+00120  8091  20 F4 81              JSR NUMTOASCII
 00121  8094  20 F0 80              JSR INCSPRDATA
 00122  8097  CE 24 C0              DEC BYTESINLINE
 00123  809A  F0 08                 BEQ ENDOFLINE
@@ -306,7 +306,7 @@
 00306  818F  E9 30                 SBC #$30
 00307  8191                        
 00308  8191  48                    PHA
-00309  8192  20 A5 81              JSR SMARTMULBY10
+00309  8192  20 A5 81              JSR MULBY10
 00310  8195  68                    PLA
 00311  8196             
 00312  8196  18                    CLC
@@ -322,7 +322,7 @@
 00322  81A4             NOTDIGIT
 00323  81A4  60                    RTS
 00324  81A5             
-00325  81A5             SMARTMULBY10 
+00325  81A5             MULBY10
 00326  81A5                        ; 1. הכפלה ב-2 (N * 2)
 00327  81A5  06 FB                 ASL $FB
 00328  81A7  26 FC                 ROL $FC
@@ -366,78 +366,117 @@
 00366  81D5  4C CD 81              JMP DIVLOOP
 00367  81D8             ENDDIV
 00368  81D8  60                    RTS
-00369  81D9             NUMTOASCII 
-00370  81D9                        ; CONVERT INT IN A TO ASCII NUMBER
-00371  81D9                        ; A = NUMBER TO CONVERTIMGNUMTOADDRESS
-00372  81D9  8C 20 C0              STY TMPY
-00373  81DC             
-00374  81DC  A0 00                 LDY #$00
-00375  81DE             CONVERTLOOP 
-00376  81DE  20 CB 81              JSR DEVIDEBY10
-00377  81E1                        
-00378  81E1  18                    CLC
-00379  81E2  69 30                 ADC #$30
-00380  81E4                        
-00381  81E4  48                    PHA
-00382  81E5  C8                    INY
-00383  81E6             
-00384  81E6  8A                    TXA
-00385  81E7  C9 00                 CMP #$00
-00386  81E9  D0 F3                 BNE CONVERTLOOP
-00387  81EB             
-00388  81EB  98                    TYA
-00389  81EC  AA                    TAX
-00390  81ED  AC 20 C0              LDY TMPY
-00391  81F0             @PRINTLOOP 
-00392  81F0  68                    PLA
-00393  81F1  91 2B                 STA (TXTTAB),Y
-00394  81F3  C8                    INY
-00395  81F4  CA                    DEX
-00396  81F5  D0 F9                 BNE @PRINTLOOP
-00397  81F7                        
-00398  81F7  60                    RTS
-00399  81F8             
-00400  81F8                        *=$C000
-00401  C000             INIT
-00402  C000  A9 00                 LDA #<CRUNCHER
-00403  C002  8D 04 03              STA $304
-00404  C005  A9 80                 LDA #>CRUNCHER
-00405  C007  8D 05 03              STA $305
-00406  C00A  60                    RTS
-00407  C00B             
-00408  C00B             PRINTHELP
-00409  C00B  A2 00                 LDX #$00
-00410  C00D             PRINTLOOP
-00411  C00D  BD 26 C0              LDA HELPTEXT,X
-00412  C010  F0 06                 BEQ ENDSTRING
-00413  C012  20 D2 FF              JSR CHAROUT
-00414  C015  E8                    INX
-00415  C016  D0 F5                 BNE PRINTLOOP
-00416  C018             ENDSTRING
-00417  C018  60                    RTS
-00418  C019                        
-00419  C019             SPRITESTRING 
-00420  C019  53 50 52              BYTE "SPRITE",0
-00421  C020  00         TMPY       BYTE 0
-00422  C021  00         TMPX       BYTE 0
-00423  C022  00 00      TMPFB      BYTE 0,0
-00424  C024             
-00425  C024  09         BYTESINLINE BYTE BYTES_IN_LINE
-00426  C025  07         DATALINES  BYTE NUM_OF_LINES
-00427  C026             
-00428  C026             HELPTEXT
-00429  C026  0D                    BYTE $0D            ; ירידת שורה (CR)[CITE: 6]
-00430  C027  53 59 4E              BYTE "SYNTAX: SPRITE [FRAME/ADDR]"
-00431  C042  0D                    BYTE $0D
-00432  C043  48 45 58              BYTE "HEX: $C0 OR $3000"
-00433  C054  0D                    BYTE $0D
-00434  C055  44 45 43              BYTE "DEC: 192 OR 12288"
-00435  C066  0D 00                 BYTE $0D, $00
-00436  C068             
-00437  C068             
-00438  C068             
+00369  81D9             
+00370  81D9             ; ================================================================
+00371  81D9             ; ROUTINE: DEVIDEBY10_BINARY
+00372  81D9             ; DIVIDES AN 8-BIT UNSIGNED INTEGER BY 10 USING BINARY LONG DIVISION.
+00373  81D9             ;
+00374  81D9             ; INPUTS:  A = DIVIDEND (0 - 255)
+00375  81D9             ; OUTPUTS: X = QUOTIENT (A / 10)
+00376  81D9             ;          A = REMAINDER (A % 10)
+00377  81D9             ; PRESERVES: Y REGISTER (UNTOUCHED, SAFE FOR OUTER LOOPS)
+00378  81D9             ; REQUIRES: 1 BYTE OF ZERO PAGE OR RAM MEMORY (TMPFB)
+00379  81D9             ; ================================================================
+00380  81D9             
+00381  81D9             DEVIDEBY10_BINARY 
+00382  81D9  8D 22 C0              STA TMPFB           ; STORE THE ORIGINAL DIVIDEND IN A TEMPORARY BUFFER
+00383  81DC  A9 00                 LDA #$00            ; CLEAR ACCUMULATOR (WILL ACCUMULATE THE REMAINDER)
+00384  81DE  A2 08                 LDX #$08            ; LOOP COUNTER: 8 BITS TO PROCESS
+00385  81E0             
+00386  81E0             @DIVLOOP
+00387  81E0  0E 22 C0              ASL TMPFB           ; SHIFT THE MSB OF THE DIVIDEND OUT INTO THE CARRY FLAG.
+00388  81E3                        ; (THIS ALSO FORCES BIT 0 OF TMPFB TO BECOME 0)
+00389  81E3                        
+00390  81E3  2A                    ROL                 ; ROTATE THE CARRY BIT INTO THE REMAINDER ACCUMULATOR (A)
+00391  81E4                        
+00392  81E4  C9 0A                 CMP #10             ; COMPARE THE ACCUMULATED REMAINDER AGAINST THE DIVISOR (10)
+00393  81E6  90 05                 BCC @SKIPSUB        ; IF REMAINDER < 10, BRANCH AND LEAVE BIT 0 OF TMPFB AS 0
+00394  81E8                        
+00395  81E8  E9 0A                 SBC #10             ; IF REMAINDER >= 10, SUBTRACT 10 FROM THE REMAINDER
+00396  81EA  EE 22 C0              INC TMPFB           ; INCREMENT TMPFB TO SET BIT 0 TO 1 (THIS IS THE QUOTIENT BIT)
+00397  81ED             
+00398  81ED             @SKIPSUB
+00399  81ED  CA                    DEX                 ; DECREMENT THE BIT LOOP COUNTER
+00400  81EE  D0 F0                 BNE @DIVLOOP        ; REPEAT THE LOOP UNTIL ALL 8 BITS ARE PROCESSED
+00401  81F0             
+00402  81F0  AE 22 C0              LDX TMPFB           ; MOVE THE FINAL COMPLETED QUOTIENT FROM THE BUFFER INTO X
+00403  81F3                        
+00404  81F3                        ; AT THIS POINT, A ALREADY RETAINS THE CORRECT REMAINDER (A = A % 10)
+00405  81F3  60                    RTS
+00406  81F4             
+00407  81F4             NUMTOASCII 
+00408  81F4                        ; CONVERT INT IN A TO ASCII NUMBER
+00409  81F4                        ; A = NUMBER TO CONVERTIMGNUMTOADDRESS
+00410  81F4  8C 20 C0              STY TMPY
+00411  81F7             
+00412  81F7  A0 00                 LDY #$00
+00413  81F9             CONVERTLOOP 
+00414  81F9  20 D9 81              JSR DEVIDEBY10_BINARY
+00415  81FC                        
+00416  81FC  18                    CLC
+00417  81FD  69 30                 ADC #$30
+00418  81FF                        
+00419  81FF  48                    PHA
+00420  8200  C8                    INY
+00421  8201             
+00422  8201  8A                    TXA
+00423  8202  C9 00                 CMP #$00
+00424  8204  D0 F3                 BNE CONVERTLOOP
+00425  8206             
+00426  8206  98                    TYA
+00427  8207  AA                    TAX
+00428  8208  AC 20 C0              LDY TMPY
+00429  820B             @PRINTLOOP 
+00430  820B  68                    PLA
+00431  820C  91 2B                 STA (TXTTAB),Y
+00432  820E  C8                    INY
+00433  820F  CA                    DEX
+00434  8210  D0 F9                 BNE @PRINTLOOP
+00435  8212                        
+00436  8212  60                    RTS
+00437  8213             
+00438  8213                        *=$C000
+00439  C000             INIT
+00440  C000  A9 00                 LDA #<CRUNCHER
+00441  C002  8D 04 03              STA $304
+00442  C005  A9 80                 LDA #>CRUNCHER
+00443  C007  8D 05 03              STA $305
+00444  C00A  60                    RTS
+00445  C00B             
+00446  C00B             PRINTHELP
+00447  C00B  A2 00                 LDX #$00
+00448  C00D             PRINTLOOP
+00449  C00D  BD 26 C0              LDA HELPTEXT,X
+00450  C010  F0 06                 BEQ ENDSTRING
+00451  C012  20 D2 FF              JSR CHAROUT
+00452  C015  E8                    INX
+00453  C016  D0 F5                 BNE PRINTLOOP
+00454  C018             ENDSTRING
+00455  C018  60                    RTS
+00456  C019                        
+00457  C019             SPRITESTRING 
+00458  C019  53 50 52              BYTE "SPRITE",0
+00459  C020  00         TMPY       BYTE 0
+00460  C021  00         TMPX       BYTE 0
+00461  C022  00 00      TMPFB      BYTE 0,0
+00462  C024             
+00463  C024  09         BYTESINLINE BYTE BYTES_IN_LINE
+00464  C025  07         DATALINES  BYTE NUM_OF_LINES
+00465  C026             
+00466  C026             HELPTEXT
+00467  C026  0D                    BYTE $0D            ; ירידת שורה (CR)[CITE: 6]
+00468  C027  53 59 4E              BYTE "SYNTAX: SPRITE [FRAME/ADDR]"
+00469  C042  0D                    BYTE $0D
+00470  C043  48 45 58              BYTE "HEX: $C0 OR $3000"
+00471  C054  0D                    BYTE $0D
+00472  C055  44 45 43              BYTE "DEC: 192 OR 12288"
+00473  C066  0D 00                 BYTE $0D, $00
+00474  C068             
+00475  C068             
+00476  C068             
+00477  C068             
 
-******* 55 Label(s) *******
+******* 56 Label(s) *******
 bytesInLine = $C024 
 checkIfAlpha = $8118 
 checkIfHex = $8124 
@@ -445,13 +484,14 @@ checkIfNum = $810C
 checkType = $803C 
 chkTyp = $802E 
 convertImgNumToAddress = $8057 
-convertLoop = $81DE 
+convertLoop = $81F9 
 convertToData = $8053 
 copyDataloop = $808F 
 cruncher = $8000 
 dataLines = $C025 
 decodeDigit = $804C 
 devideBy10 = $81CB 
+devideBy10_Binary = $81D9 
 divLoop = $81CD 
 endDiv = $81D8 
 endOfCMD = $8031 
@@ -467,13 +507,14 @@ incSprData = $80F0
 init = $C000 
 itsNum = $8049 
 lsrLoop = $805C 
+MulBy10 = $81A5 
 newLine = $806C 
 notAlpha = $8121 
 notANumber = $8115 
 notDigit = $81A4 
 notSprite = $8037 
 numError = $8056 
-numToAscii = $81D9 
+numToAscii = $81F4 
 parseDec = $8175 
 parseHex = $8132 
 paseHexError = $8174 
@@ -486,7 +527,6 @@ returnTrue = $8131
 shiftLeft = $8160 
 skipSpace = $8034 
 skipSpaces = $8019 
-smartMulBy10 = $81A5 
 sprDataToBasic = $8064 
 spriteCMDFound = $8013 
 spriteString = $C019 
@@ -494,10 +534,13 @@ tmpFB = $C022
 tmpX = $C021 
 tmpY = $C020 
 
-******* 7 Unused label(s) *******
+******* 8 Unused label(s) *******
+@divLoop
 @printLoop
 @shiftLeft
+@skipSub
 checkIfHex
+devideBy10
 endOfHex
 finisheDecoding
 init
@@ -515,7 +558,7 @@ NUM_OF_LINES  = $0007
 SPR_ADDR  = $00FB
 tgt_c64  = $0001
 TXTTAB  = $002B
-******* 0 Unused variables(s) *******
+******* -2 Unused variables(s) *******
 DIGIT_COUNT
 tgt_c64
 
