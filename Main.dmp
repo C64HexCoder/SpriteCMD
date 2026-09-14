@@ -463,18 +463,24 @@
 00463  C024  09         BYTESINLINE BYTE BYTES_IN_LINE
 00464  C025  07         DATALINES  BYTE NUM_OF_LINES
 00465  C026             
-00466  C026             HELPTEXT
-00467  C026  0D                    BYTE $0D            ; ירידת שורה (CR)[CITE: 6]
-00468  C027  53 59 4E              BYTE "SYNTAX: SPRITE [FRAME/ADDR]"
-00469  C042  0D                    BYTE $0D
-00470  C043  48 45 58              BYTE "HEX: $C0 OR $3000"
-00471  C054  0D                    BYTE $0D
-00472  C055  44 45 43              BYTE "DEC: 192 OR 12288"
-00473  C066  0D 00                 BYTE $0D, $00
-00474  C068             
-00475  C068             
-00476  C068             
-00477  C068             
+00466  C026             ; COLORS: 0=BLACK, 1=WHITE, 2=RED, 3=CYAN, 4=PURPLE, 5=GREEN, 6=BLUE, 7=YELLOW, 8=ORANGE, 9=BROWN, 10=LIGHT RED, 11=DARK GRAY, 12=MEDIUM GRAY, 13=LIGHT GREEN, 14=LIGHT BLUE, 15=LIGHT GRAY
+00467  C026             
+00468  C026             HELPTEXT
+00469  C026  0D                    BYTE $0D                ; CARRIAGE RETURN (CR)
+00470  C027                        
+00471  C027                        ; SYNTAX LINE: TITLE IN YELLOW, DESCRIPTION IN WHITE
+00472  C027  9E 53 59              BYTE $9E, "SYNTAX: ", $05, "SPRITE [FRAME/ADDR]", $0D
+00473  C045                        
+00474  C045                        ; HEX EXAMPLE: TITLE IN CYAN, DESCRIPTION IN WHITE
+00475  C045  9F 48 45              BYTE $9F, "HEX: ", $05, "$C0 OR $3000", $0D
+00476  C059                        
+00477  C059                        ; DECIMAL EXAMPLE: TITLE IN GREEN, DESCRIPTION IN WHITE
+00478  C059  1E 44 45              BYTE $1E, "DEC: ", $05, "192 OR 12288", $0D
+00479  C06D                        
+00480  C06D                        ; RESET TEXT COLOR TO SYSTEM DEFAULT (LIGHT BLUE) AND NULL-TERMINATE STRING
+00481  C06D  9A 00                 BYTE $9A, $00
+00482  C06F             
+00483  C06F             
 
 ******* 56 Label(s) *******
 bytesInLine = $C024 

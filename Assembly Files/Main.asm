@@ -463,14 +463,20 @@ tmpFB   byte 0,0
 bytesInLine byte BYTES_IN_LINE
 dataLines byte NUM_OF_LINES
 
+; Colors: 0=Black, 1=White, 2=Red, 3=Cyan, 4=Purple, 5=Green, 6=Blue, 7=Yellow, 8=Orange, 9=Brown, 10=Light Red, 11=Dark Gray, 12=Medium Gray, 13=Light Green, 14=Light Blue, 15=Light Gray
+
 helpText
-        byte $0D            ; ירידת שורה (CR)[cite: 6]
-        byte "syntax: sprite [frame/addr]"
-        byte $0D
-        byte "hex: $c0 or $3000"
-        byte $0D
-        byte "dec: 192 or 12288"
-        byte $0D, $00
-
-
+        byte $0D                ; Carriage Return (CR)
+        
+        ; Syntax line: title in yellow, description in white
+        byte $9E, "syntax: ", $05, "sprite [frame/addr]", $0D
+        
+        ; Hex example: title in cyan, description in white
+        byte $9F, "hex: ", $05, "$c0 or $3000", $0D
+        
+        ; Decimal example: title in green, description in white
+        byte $1E, "dec: ", $05, "192 or 12288", $0D
+        
+        ; Reset text color to system default (light blue) and null-terminate string
+        byte $9A, $00
 
