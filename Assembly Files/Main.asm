@@ -1,9 +1,10 @@
-DIGIT_COUNT = $fd
-SPR_ADDR    = $FB
-TXTTAB      = $2B
-LINE_NUMBER = $f9
-NEXT_LINE   = $F7
-BYTES_IN_LINE = $09
+SPR_ADDR        = $FB
+WRITE_PTR       = $fd
+TXTTAB          = $2B
+VARTAB          = $2D
+LINE_NUMBER     = $f9
+NEXT_LINE       = $F7
+BYTES_IN_LINE   = $09
 NUM_OF_LINES = 63/BYTES_IN_LINE
 CHAROUT         = $FFD2
 
@@ -80,11 +81,14 @@ lsrLoop
         rts
 
 sprDataToBasic
-        ; movie basic line number 1000 to LINE_NUMBER
-        lda #$e8
-        sta LINE_NUMBER
-        lda #$03
-        sta LINE_NUMBER+1
+        lda TXTTAB
+        sta origTexTab
+        lda TXTTAB+1
+        sta origTexTab+1
+
+        jsr findEndOfBasic
+
+       
 newLine    
         ; save the placeholder for the next basic line
         lda TXTTAB
@@ -162,17 +166,22 @@ endOfLine
         iny
         sta (TXTTAB),y
         
+ 
         clc
         lda TXTTAB
         adc #$02
         sta $2d
+        sta $2f
+        sta $31
         lda TXTTAB+1
         adc #$00
         sta $2e
-
-        lda #$01
+        sta $30
+        sta $32
+   
+        lda origTexTab
         sta TXTTAB
-        lda #$08
+        lda origTexTab+1
         sta TXTTAB+1
  
         lda #NUM_OF_LINES
@@ -206,7 +215,7 @@ checkIfNum
         bcs notANumber     
         rts
 notANumber
-        lda #$00      // return 1 if it's not a number
+        lda #$00                ;return 1 if it's not a number
         rts
 
 checkIfAlpha
@@ -238,7 +247,7 @@ parseHex
         cmp #'0'                ; compare to '0' char
         bcc paseHexError        ; if less then '0' then error
 
-        cmp #$40             ;compare to 'A' if bigger then not a digit
+        cmp #$40                ;compare to 'A' if bigger then not a digit
         bcs hexNum
 
         pha
@@ -435,13 +444,7 @@ convertLoop
              
         rts
 
-        *=$c000
-init
-        lda #<cruncher
-        sta $304
-        lda #>cruncher
-        sta $305
-        rts
+
 
 printHelp
         ldx #$00
@@ -453,7 +456,61 @@ printLoop
         bne printLoop
 endString
         rts
-        
+findEndOfBasic
+        lda TXTTAB
+        sta WRITE_PTR
+        lda TXTTAB+1
+        sta WRITE_PTR+1
+
+        ldy #$01
+        lda (WRITE_PTR),y
+        bne hasProgram
+                                ;FOUND BASIC    
+        lda #$e8
+        sta LINE_NUMBER
+        lda #$03
+        sta LINE_NUMBER+1
+        rts
+
+hasProgram
+        ldy #$01
+        lda (WRITE_PTR),y
+        sta NEXT_LINE+1
+        dey
+        lda (WRITE_PTR),y
+        sta NEXT_LINE
+
+        ldy #$01
+        lda (NEXT_LINE),y
+        beq endOfProgram
+
+        LDA NEXT_LINE
+        sta WRITE_PTR
+    
+        lda NEXT_LINE+1
+        sta WRITE_PTR+1
+
+        jmp hasProgram
+
+endOfProgram
+
+        ldy #$02
+        clc
+        lda (WRITE_PTR),y
+        adc #$0a
+        sta LINE_NUMBER
+        iny
+        lda (WRITE_PTR),y
+        adc #$00
+        sta LINE_NUMBER+1
+
+        lda NEXT_LINE
+        sta TXTTAB
+        lda NEXT_LINE+1
+        sta TXTTAB+1
+
+        rts
+
 spriteString
         byte "sprite",0
 tmpY    byte 0
@@ -480,3 +537,15 @@ helpText
         ; Reset text color to system default (light blue) and null-terminate string
         byte $9A, $00
 
+origTexTab byte 01,08
+
+
+        *=$c000
+init
+        lda #<cruncher
+        sta $304
+        lda #>cruncher
+        sta $305
+
+ 
+        rts

@@ -1,9 +1,10 @@
-DIGIT_COUNT = $fd
-SPR_ADDR    = $FB
-TXTTAB      = $2B
-LINE_NUMBER = $f9
-NEXT_LINE   = $F7
-BYTES_IN_LINE = $09
+DIGIT_COUNT     = $fd
+SPR_ADDR        = $FB
+TXTTAB          = $2B
+VARTAB          = $2D
+LINE_NUMBER     = $f9
+NEXT_LINE       = $F7
+BYTES_IN_LINE   = $09
 NUM_OF_LINES = 63/BYTES_IN_LINE
 CHAROUT         = $FFD2
 
@@ -80,6 +81,8 @@ lsrLoop
         rts
 
 sprDataToBasic
+        jsr findEndOfBasic
+
         ; movie basic line number 1000 to LINE_NUMBER
         lda #$e8
         sta LINE_NUMBER
@@ -206,7 +209,7 @@ checkIfNum
         bcs notANumber     
         rts
 notANumber
-        lda #$00      // return 1 if it's not a number
+        lda #$00                ;return 1 if it's not a number
         rts
 
 checkIfAlpha
@@ -238,7 +241,7 @@ parseHex
         cmp #'0'                ; compare to '0' char
         bcc paseHexError        ; if less then '0' then error
 
-        cmp #$40             ;compare to 'A' if bigger then not a digit
+        cmp #$40                ;compare to 'A' if bigger then not a digit
         bcs hexNum
 
         pha
@@ -306,7 +309,7 @@ readNumber
         sbc #$30
         
         pha
-        jsr smartMulBy10
+        jsr MulBy10
         pla
 
         clc
@@ -322,7 +325,7 @@ endOfNum
 notDigit
         rts
 
-smartMulBy10
+MulBy10
         ; 1. הכפלה ב-2 (N * 2)
         asl $fb
         rol $fc
@@ -369,34 +372,39 @@ endDiv
 
 ; ================================================================
 ; Routine: devideBy10_Binary
+; Divides an 8-bit unsigned integer by 10 using binary long division.
+;
 ; Inputs:  A = Dividend (0 - 255)
-; Outputs: X = Quotient (A / 10), A = Remainder (A % 10)
-; Preserves: Y (Crucial for numToAscii stack counter!)
+; Outputs: X = Quotient (A / 10)
+;          A = Remainder (A % 10)
+; Preserves: Y register (Untouched, safe for outer loops)
+; Requires: 1 byte of Zero Page or RAM memory (tmpFB)
 ; ================================================================
+
 devideBy10_Binary
-        sta tmpFB           ; Store dividend in temporary variable
-        lda #$00            ; Clear accumulator (remainder)
-        ldx #$08            ; 8 bits loop counter
+        sta tmpFB           ; Store the original dividend in a temporary buffer
+        lda #$00            ; Clear accumulator (will accumulate the remainder)
+        ldx #$08            ; Loop counter: 8 bits to process
 
 @divLoop
-        asl tmpFB           ; Shift MSB of dividend out to Carry
-        rol tmpFB+1
-        rol                 ; Rotate Carry into remainder (A)
-        cmp #10             ; Is remainder >= 10?
-        bcc @skipSub
-        sbc #10             ; Subtract 10 (Carry becomes/remains 1)
+        asl tmpFB           ; Shift the MSB of the dividend out into the Carry flag.
+                            ; (This also forces bit 0 of tmpFB to become 0)
+                            
+        rol                 ; Rotate the Carry bit into the remainder accumulator (A)
+                            
+        cmp #10             ; Compare the accumulated remainder against the divisor (10)
+        bcc @skipSub        ; If remainder < 10, branch and leave bit 0 of tmpFB as 0
+        
+        sbc #10             ; If remainder >= 10, subtract 10 from the remainder
+        inc tmpFB           ; Increment tmpFB to set bit 0 to 1 (this is the quotient bit)
 
 @skipSub
-        dex
-        bne @divLoop
+        dex                 ; Decrement the bit loop counter
+        bne @divLoop        ; Repeat the loop until all 8 bits are processed
 
-        ; At this point:
-        ; A holds the Remainder (0 - 9)
-        ; tmpFB holds the Quotient (rotated in via ASL/Carry)
-        ; But we must push the last comparison bit into tmpFB:
-        rol tmpFB           ; Rotate final Carry into quotient
-        rol tmpFB+1
-                     ; A = Remainder
+        ldx tmpFB           ; Move the final completed quotient from the buffer into X
+        
+        ; At this point, A already retains the correct remainder (A = A % 10)
         rts
 
 numToAscii
@@ -406,7 +414,7 @@ numToAscii
 
         ldy #$00
 convertLoop
-        jsr devideBy10
+        jsr devideBy10_Binary
         
         clc
         adc #$30
@@ -430,13 +438,7 @@ convertLoop
              
         rts
 
-        *=$c000
-init
-        lda #<cruncher
-        sta $304
-        lda #>cruncher
-        sta $305
-        rts
+
 
 printHelp
         ldx #$00
@@ -448,7 +450,24 @@ printLoop
         bne printLoop
 endString
         rts
-        
+findEndOfBasic
+        lda $2b
+        sta $fb
+        lda $2c
+        sta $fc
+
+        ldy #$01
+        lda ($fb),y
+        beq noBasicProgram
+        tax
+        dey
+        lda ($fb),y
+        sta $fb
+        stx $fc
+
+noBasicProgram
+        rts
+
 spriteString
         byte "sprite",0
 tmpY    byte 0
@@ -458,13 +477,30 @@ tmpFB   byte 0,0
 bytesInLine byte BYTES_IN_LINE
 dataLines byte NUM_OF_LINES
 
+; Colors: 0=Black, 1=White, 2=Red, 3=Cyan, 4=Purple, 5=Green, 6=Blue, 7=Yellow, 8=Orange, 9=Brown, 10=Light Red, 11=Dark Gray, 12=Medium Gray, 13=Light Green, 14=Light Blue, 15=Light Gray
+
 helpText
-        byte $0D            ; ירידת שורה (CR)[cite: 6]
-        byte "syntax: sprite [frame/addr]"
-        byte $0D
-        byte "hex: $c0 or $3000"
-        byte $0D
-        byte "dec: 192 or 12288"
-        byte $0D, $00
+        byte $0D                ; Carriage Return (CR)
+        
+        ; Syntax line: title in yellow, description in white
+        byte $9E, "syntax: ", $05, "sprite [frame/addr]", $0D
+        
+        ; Hex example: title in cyan, description in white
+        byte $9F, "hex: ", $05, "$c0 or $3000", $0D
+        
+        ; Decimal example: title in green, description in white
+        byte $1E, "dec: ", $05, "192 or 12288", $0D
+        
+        ; Reset text color to system default (light blue) and null-terminate string
+        byte $9A, $00
 
 
+
+
+        *=$c000
+init
+        lda #<cruncher
+        sta $304
+        lda #>cruncher
+        sta $305
+        rts
