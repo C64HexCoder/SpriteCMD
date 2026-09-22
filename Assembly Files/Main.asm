@@ -81,14 +81,16 @@ lsrLoop
         rts
 
 sprDataToBasic
+        ; backup the TXTTAB to memory
         lda TXTTAB
         sta origTexTab
         lda TXTTAB+1
         sta origTexTab+1
 
+        ;find the end of basic program in memory
         jsr findEndOfBasic
-
-       
+        jsr injectREM
+        
 newLine    
         ; save the placeholder for the next basic line
         lda TXTTAB
@@ -465,13 +467,16 @@ findEndOfBasic
         ldy #$01
         lda (WRITE_PTR),y
         bne hasProgram
-                                ;FOUND BASIC    
+        
+        ; No basic just set line number to 1000
         lda #$e8
         sta LINE_NUMBER
         lda #$03
         sta LINE_NUMBER+1
         rts
-
+        
+        ;found basic program, add new code to the end of the program
+        ;and set the new lines number accordingly to the last new number
 hasProgram
         ldy #$01
         lda (WRITE_PTR),y
@@ -511,6 +516,68 @@ endOfProgram
 
         rts
 
+injectREM
+        lda TXTTAB
+        sta NEXT_LINE
+        lda TXTTAB+1
+        sta NEXT_LINE+1
+
+        ldy #$02
+        lda LINE_NUMBER
+        sta (TXTTAB),y
+        iny
+        lda LINE_NUMBER+1
+        sta (TXTTAB),y
+        
+        iny
+        lda #$8f ; REM Token
+        sta (TXTTAB),y
+        
+        iny
+        ldx #$00
+injectString
+        lda remString,x
+        sta (TXTTAB),y
+        beq endOfString
+        iny
+        inx
+        bne injectString
+
+endOfString
+        ; finished the string
+  
+        ; put 00 at end of line
+        lda #$00
+        sta (TXTTAB),y
+        iny
+        
+        tya
+        ldy #$00
+        clc
+        adc TXTTAB
+        sta TXTTAB
+     
+        lda TXTTAB+1
+        adc #$00
+        sta TXTTAB+1
+        
+        ldy #$00
+        lda TXTTAB
+        sta (NEXT_LINE),y
+        iny
+        lda TXTTAB+1
+        sta (NEXT_LINE),y
+
+        jsr incLineNum
+
+        rts
+        
+     
+
+remString
+        byte " sprite image",0
+        
+        
 spriteString
         byte "sprite",0
 tmpY    byte 0

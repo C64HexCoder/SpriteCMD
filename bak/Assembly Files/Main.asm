@@ -1,5 +1,5 @@
-DIGIT_COUNT     = $fd
 SPR_ADDR        = $FB
+WRITE_PTR       = $fd
 TXTTAB          = $2B
 VARTAB          = $2D
 LINE_NUMBER     = $f9
@@ -81,13 +81,16 @@ lsrLoop
         rts
 
 sprDataToBasic
-        jsr findEndOfBasic
+        ; backup the TXTTAB to memory
+        lda TXTTAB
+        sta origTexTab
+        lda TXTTAB+1
+        sta origTexTab+1
 
-        ; movie basic line number 1000 to LINE_NUMBER
-        lda #$e8
-        sta LINE_NUMBER
-        lda #$03
-        sta LINE_NUMBER+1
+        ;find the end of basic program in memory
+        jsr findEndOfBasic
+        jsr injectREM
+        
 newLine    
         ; save the placeholder for the next basic line
         lda TXTTAB
@@ -165,17 +168,22 @@ endOfLine
         iny
         sta (TXTTAB),y
         
+ 
         clc
         lda TXTTAB
         adc #$02
         sta $2d
+        sta $2f
+        sta $31
         lda TXTTAB+1
         adc #$00
         sta $2e
-
-        lda #$01
+        sta $30
+        sta $32
+   
+        lda origTexTab
         sta TXTTAB
-        lda #$08
+        lda origTexTab+1
         sta TXTTAB+1
  
         lda #NUM_OF_LINES
@@ -451,23 +459,125 @@ printLoop
 endString
         rts
 findEndOfBasic
-        lda $2b
-        sta $fb
-        lda $2c
-        sta $fc
+        lda TXTTAB
+        sta WRITE_PTR
+        lda TXTTAB+1
+        sta WRITE_PTR+1
 
         ldy #$01
-        lda ($fb),y
-        beq noBasicProgram
-        tax
+        lda (WRITE_PTR),y
+        bne hasProgram
+        
+        ; No basic just set line number to 1000
+        lda #$e8
+        sta LINE_NUMBER
+        lda #$03
+        sta LINE_NUMBER+1
+        rts
+        
+        ;found basic program, add new code to the end of the program
+        ;and set the new lines number accordingly to the last new number
+hasProgram
+        ldy #$01
+        lda (WRITE_PTR),y
+        sta NEXT_LINE+1
         dey
-        lda ($fb),y
-        sta $fb
-        stx $fc
+        lda (WRITE_PTR),y
+        sta NEXT_LINE
 
-noBasicProgram
+        ldy #$01
+        lda (NEXT_LINE),y
+        beq endOfProgram
+
+        LDA NEXT_LINE
+        sta WRITE_PTR
+    
+        lda NEXT_LINE+1
+        sta WRITE_PTR+1
+
+        jmp hasProgram
+
+endOfProgram
+
+        ldy #$02
+        clc
+        lda (WRITE_PTR),y
+        adc #$0a
+        sta LINE_NUMBER
+        iny
+        lda (WRITE_PTR),y
+        adc #$00
+        sta LINE_NUMBER+1
+
+        lda NEXT_LINE
+        sta TXTTAB
+        lda NEXT_LINE+1
+        sta TXTTAB+1
+
         rts
 
+injectREM
+        lda TXTTAB
+        sta NEXT_LINE
+        lda TXTTAB+1
+        sta NEXT_LINE+1
+
+        ldy #$02
+        lda LINE_NUMBER
+        sta (TXTTAB),y
+        iny
+        lda LINE_NUMBER+1
+        sta (TXTTAB),y
+        
+        iny
+        lda #$8f ; REM Token
+        sta (TXTTAB),y
+        
+        iny
+        ldx #$00
+injectString
+        lda remString,x
+        sta (TXTTAB),y
+        beq endOfString
+        iny
+        inx
+        bne injectString
+
+endOfString
+        ; finished the string
+  
+        ; put 00 at end of line
+        lda #$00
+        sta (TXTTAB),y
+        iny
+        
+        tya
+        ldy #$00
+        clc
+        adc TXTTAB
+        sta TXTTAB
+     
+        lda TXTTAB+1
+        adc #$00
+        sta TXTTAB+1
+        
+        ldy #$00
+        lda TXTTAB
+        sta (NEXT_LINE),y
+        iny
+        lda TXTTAB+1
+        sta (NEXT_LINE),y
+
+        jsr incLineNum
+
+        rts
+        
+     
+
+remString
+        byte " sprite image",0
+        
+        
 spriteString
         byte "sprite",0
 tmpY    byte 0
@@ -494,7 +604,7 @@ helpText
         ; Reset text color to system default (light blue) and null-terminate string
         byte $9A, $00
 
-
+origTexTab byte 01,08
 
 
         *=$c000
@@ -503,4 +613,6 @@ init
         sta $304
         lda #>cruncher
         sta $305
+
+ 
         rts

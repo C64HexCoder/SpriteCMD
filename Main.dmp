@@ -13,7 +13,7 @@
 00013  8000  A6 7A                 LDX $7A
 00014  8002  A0 00                 LDY #$00
 00015  8004             READLOOP
-00016  8004  B9 7C 82              LDA SPRITESTRING,Y
+00016  8004  B9 D5 82              LDA SPRITESTRING,Y
 00017  8007  F0 0A                 BEQ SPRITECMDFOUND
 00018  8009  DD 00 02              CMP $0200,X
 00019  800C  D0 29                 BNE NOTSPRITE
@@ -33,7 +33,7 @@
 00033  8022  F0 10                 BEQ SKIPSPACE
 00034  8024  C9 3F                 CMP #'?'
 00035  8026  D0 06                 BNE CHKTYP
-00036  8028  20 22 82              JSR PRINTHELP
+00036  8028  20 25 82              JSR PRINTHELP
 00037  802B  4C 31 80              JMP ENDOFCMD
 00038  802E             CHKTYP
 00039  802E  20 3C 80              JSR CHECKTYPE
@@ -53,10 +53,10 @@
 00053  803C  BD 00 02              LDA $0200,X
 00054  803F  C9 24                 CMP #'$'
 00055  8041  D0 06                 BNE ITSNUM
-00056  8043  20 41 81              JSR PARSEHEX
+00056  8043  20 44 81              JSR PARSEHEX
 00057  8046  4C 4C 80              JMP DECODEDIGIT
 00058  8049             ITSNUM
-00059  8049  20 84 81              JSR PARSEDEC
+00059  8049  20 87 81              JSR PARSEDEC
 00060  804C             DECODEDIGIT 
 00061  804C  A5 FC                 LDA $FC
 00062  804E  D0 03                 BNE CONVERTTODATA
@@ -81,537 +81,608 @@
 00081  8063  60                    RTS
 00082  8064             
 00083  8064             SPRDATATOBASIC 
-00084  8064  A5 2B                 LDA TXTTAB
-00085  8066  8D D2 82              STA ORIGTEXTAB
-00086  8069  A5 2C                 LDA TXTTAB+1
-00087  806B  8D D3 82              STA ORIGTEXTAB+1
-00088  806E             
-00089  806E  20 30 82              JSR FINDENDOFBASIC
-00090  8071             
-00091  8071                        
-00092  8071             NEWLINE    
-00093  8071                        ; SAVE THE PLACEHOLDER FOR THE NEXT BASIC LINE
-00094  8071  A5 2B                 LDA TXTTAB
-00095  8073  85 F7                 STA NEXT_LINE
-00096  8075  A5 2C                 LDA TXTTAB+1
-00097  8077  85 F8                 STA NEXT_LINE+1
-00098  8079                        
-00099  8079             
-00100  8079  A0 02                 LDY #$02
-00101  807B  A2 00                 LDX #$00
-00102  807D             
-00103  807D                        
-00104  807D  A5 F9                 LDA LINE_NUMBER
-00105  807F  91 2B                 STA (TXTTAB),Y
-00106  8081  C8                    INY
-00107  8082  A5 FA                 LDA LINE_NUMBER+1
-00108  8084  91 2B                 STA (TXTTAB),Y
-00109  8086  C8                    INY
-00110  8087             
-00111  8087  20 0D 81              JSR INCLINENUM
+00084  8064                        ; BACKUP THE TXTTAB TO MEMORY
+00085  8064  A5 2B                 LDA TXTTAB
+00086  8066  8D 2B 83              STA ORIGTEXTAB
+00087  8069  A5 2C                 LDA TXTTAB+1
+00088  806B  8D 2C 83              STA ORIGTEXTAB+1
+00089  806E             
+00090  806E                        ;FIND THE END OF BASIC PROGRAM IN MEMORY
+00091  806E  20 33 82              JSR FINDENDOFBASIC
+00092  8071  20 7F 82              JSR INJECTREM
+00093  8074                        
+00094  8074             NEWLINE    
+00095  8074                        ; SAVE THE PLACEHOLDER FOR THE NEXT BASIC LINE
+00096  8074  A5 2B                 LDA TXTTAB
+00097  8076  85 F7                 STA NEXT_LINE
+00098  8078  A5 2C                 LDA TXTTAB+1
+00099  807A  85 F8                 STA NEXT_LINE+1
+00100  807C                        
+00101  807C             
+00102  807C  A0 02                 LDY #$02
+00103  807E  A2 00                 LDX #$00
+00104  8080             
+00105  8080                        
+00106  8080  A5 F9                 LDA LINE_NUMBER
+00107  8082  91 2B                 STA (TXTTAB),Y
+00108  8084  C8                    INY
+00109  8085  A5 FA                 LDA LINE_NUMBER+1
+00110  8087  91 2B                 STA (TXTTAB),Y
+00111  8089  C8                    INY
 00112  808A             
-00113  808A  A9 83                 LDA #$83        ;DATA TOKEN
-00114  808C  91 2B                 STA (TXTTAB),Y
-00115  808E  C8                    INY
-00116  808F             
-00117  808F  A9 20                 LDA #$20
-00118  8091  91 2B                 STA (TXTTAB),Y
-00119  8093  C8                    INY
-00120  8094             
-00121  8094             COPYDATALOOP 
-00122  8094  A1 FB                 LDA (SPR_ADDR,X)
-00123  8096                        
-00124  8096  20 03 82              JSR NUMTOASCII
-00125  8099  20 FF 80              JSR INCSPRDATA
-00126  809C  CE 87 82              DEC BYTESINLINE
-00127  809F  F0 08                 BEQ ENDOFLINE
-00128  80A1  A9 2C                 LDA #$2C
-00129  80A3  91 2B                 STA (TXTTAB),Y
-00130  80A5  C8                    INY
-00131  80A6  4C 94 80              JMP COPYDATALOOP
-00132  80A9             
-00133  80A9             ENDOFLINE
-00134  80A9  A9 09                 LDA #BYTES_IN_LINE
-00135  80AB  8D 87 82              STA BYTESINLINE
-00136  80AE             
-00137  80AE                        ; PUT 00 AT END OF LINE
-00138  80AE  A9 00                 LDA #$00
-00139  80B0  91 2B                 STA (TXTTAB),Y
-00140  80B2  C8                    INY
-00141  80B3                        
-00142  80B3  98                    TYA
-00143  80B4  A0 00                 LDY #$00
-00144  80B6  18                    CLC
-00145  80B7  65 2B                 ADC TXTTAB
-00146  80B9  85 2B                 STA TXTTAB
-00147  80BB                        
-00148  80BB  A5 2C                 LDA TXTTAB+1
-00149  80BD  69 00                 ADC #$00
-00150  80BF  85 2C                 STA TXTTAB+1
-00151  80C1                        
-00152  80C1  A0 00                 LDY #$00
-00153  80C3  A5 2B                 LDA TXTTAB
-00154  80C5  91 F7                 STA (NEXT_LINE),Y
-00155  80C7  C8                    INY
-00156  80C8  A5 2C                 LDA TXTTAB+1
-00157  80CA  91 F7                 STA (NEXT_LINE),Y
-00158  80CC             
-00159  80CC             
-00160  80CC  CE 88 82              DEC DATALINES
-00161  80CF  D0 A0                 BNE NEWLINE
-00162  80D1                        
-00163  80D1  A0 00                 LDY #$00
-00164  80D3  A9 00                 LDA #$00
-00165  80D5  91 2B                 STA (TXTTAB),Y
-00166  80D7  C8                    INY
+00113  808A  20 10 81              JSR INCLINENUM
+00114  808D             
+00115  808D  A9 83                 LDA #$83        ;DATA TOKEN
+00116  808F  91 2B                 STA (TXTTAB),Y
+00117  8091  C8                    INY
+00118  8092             
+00119  8092  A9 20                 LDA #$20
+00120  8094  91 2B                 STA (TXTTAB),Y
+00121  8096  C8                    INY
+00122  8097             
+00123  8097             COPYDATALOOP 
+00124  8097  A1 FB                 LDA (SPR_ADDR,X)
+00125  8099                        
+00126  8099  20 06 82              JSR NUMTOASCII
+00127  809C  20 02 81              JSR INCSPRDATA
+00128  809F  CE E0 82              DEC BYTESINLINE
+00129  80A2  F0 08                 BEQ ENDOFLINE
+00130  80A4  A9 2C                 LDA #$2C
+00131  80A6  91 2B                 STA (TXTTAB),Y
+00132  80A8  C8                    INY
+00133  80A9  4C 97 80              JMP COPYDATALOOP
+00134  80AC             
+00135  80AC             ENDOFLINE
+00136  80AC  A9 09                 LDA #BYTES_IN_LINE
+00137  80AE  8D E0 82              STA BYTESINLINE
+00138  80B1             
+00139  80B1                        ; PUT 00 AT END OF LINE
+00140  80B1  A9 00                 LDA #$00
+00141  80B3  91 2B                 STA (TXTTAB),Y
+00142  80B5  C8                    INY
+00143  80B6                        
+00144  80B6  98                    TYA
+00145  80B7  A0 00                 LDY #$00
+00146  80B9  18                    CLC
+00147  80BA  65 2B                 ADC TXTTAB
+00148  80BC  85 2B                 STA TXTTAB
+00149  80BE                        
+00150  80BE  A5 2C                 LDA TXTTAB+1
+00151  80C0  69 00                 ADC #$00
+00152  80C2  85 2C                 STA TXTTAB+1
+00153  80C4                        
+00154  80C4  A0 00                 LDY #$00
+00155  80C6  A5 2B                 LDA TXTTAB
+00156  80C8  91 F7                 STA (NEXT_LINE),Y
+00157  80CA  C8                    INY
+00158  80CB  A5 2C                 LDA TXTTAB+1
+00159  80CD  91 F7                 STA (NEXT_LINE),Y
+00160  80CF             
+00161  80CF             
+00162  80CF  CE E1 82              DEC DATALINES
+00163  80D2  D0 A0                 BNE NEWLINE
+00164  80D4                        
+00165  80D4  A0 00                 LDY #$00
+00166  80D6  A9 00                 LDA #$00
 00167  80D8  91 2B                 STA (TXTTAB),Y
-00168  80DA                        
-00169  80DA                        
-00170  80DA  18                    CLC
-00171  80DB  A5 2B                 LDA TXTTAB
-00172  80DD  69 02                 ADC #$02
-00173  80DF  85 2D                 STA $2D
-00174  80E1  85 2F                 STA $2F
-00175  80E3  85 31                 STA $31
-00176  80E5  A5 2C                 LDA TXTTAB+1
-00177  80E7  69 00                 ADC #$00
-00178  80E9  85 2E                 STA $2E
-00179  80EB  85 30                 STA $30
-00180  80ED  85 32                 STA $32
-00181  80EF                        
-00182  80EF  AD D2 82              LDA ORIGTEXTAB
-00183  80F2  85 2B                 STA TXTTAB
-00184  80F4  AD D3 82              LDA ORIGTEXTAB+1
-00185  80F7  85 2C                 STA TXTTAB+1
-00186  80F9                        
-00187  80F9  A9 07                 LDA #NUM_OF_LINES
-00188  80FB  8D 88 82              STA DATALINES
-00189  80FE             
-00190  80FE  60                    RTS
-00191  80FF             
-00192  80FF             INCSPRDATA 
-00193  80FF  18                    CLC
-00194  8100  A5 FB                 LDA SPR_ADDR
-00195  8102  69 01                 ADC #$01
-00196  8104  85 FB                 STA SPR_ADDR
-00197  8106  A5 FC                 LDA SPR_ADDR+1
-00198  8108  69 00                 ADC #00
-00199  810A  85 FC                 STA SPR_ADDR+1
-00200  810C  60                    RTS
-00201  810D                        
-00202  810D             INCLINENUM 
-00203  810D  18                    CLC
-00204  810E  A5 F9                 LDA LINE_NUMBER
-00205  8110  69 0A                 ADC #$0A
-00206  8112  85 F9                 STA LINE_NUMBER
-00207  8114  A5 FA                 LDA LINE_NUMBER+1
-00208  8116  69 00                 ADC #00
-00209  8118  85 FA                 STA LINE_NUMBER+1
-00210  811A  60                    RTS
-00211  811B             CHECKIFNUM 
-00212  811B  C9 30                 CMP #'0'
-00213  811D  90 05                 BCC NOTANUMBER
-00214  811F  C9 39                 CMP #'9'+1
-00215  8121  B0 01                 BCS NOTANUMBER
-00216  8123  60                    RTS
-00217  8124             NOTANUMBER 
-00218  8124  A9 00                 LDA #$00                ;RETURN 1 IF IT'S NOT A NUMBER
-00219  8126  60                    RTS
-00220  8127             
-00221  8127             CHECKIFALPHA 
-00222  8127  C9 01                 CMP #'A'
-00223  8129  90 05                 BCC NOTALPHA
-00224  812B  C9 06                 CMP #'F'+1
-00225  812D  B0 01                 BCS NOTALPHA
-00226  812F  60                    RTS
-00227  8130             NOTALPHA
-00228  8130  A9 00                 LDA #$00
-00229  8132  60                    RTS
-00230  8133             CHECKIFHEX 
-00231  8133  20 1B 81              JSR CHECKIFNUM
-00232  8136  F0 08                 BEQ RETURNTRUE
-00233  8138  20 27 81              JSR CHECKIFALPHA
-00234  813B  F0 03                 BEQ RETURNTRUE
-00235  813D  A9 00                 LDA #$00
-00236  813F  60                    RTS
-00237  8140             RETURNTRUE 
-00238  8140  60                    RTS
-00239  8141             
-00240  8141             PARSEHEX
-00241  8141  E8                    INX
-00242  8142  BD 00 02              LDA $0200,X
-00243  8145                        ; BEQ ENDOFHEX
-00244  8145                        ;CMP #$20
-00245  8145                        ;BEQ ENDOFHEX
-00246  8145             
-00247  8145  C9 30                 CMP #'0'                ; COMPARE TO '0' CHAR
-00248  8147  90 3A                 BCC PASEHEXERROR        ; IF LESS THEN '0' THEN ERROR
-00249  8149             
-00250  8149  C9 40                 CMP #$40                ;COMPARE TO 'A' IF BIGGER THEN NOT A DIGIT
-00251  814B  B0 17                 BCS HEXNUM
-00252  814D             
-00253  814D  48                    PHA
-00254  814E  A0 00                 LDY #$00
-00255  8150             @SHIFTLEFT 
-00256  8150  06 FB                 ASL $FB
-00257  8152  26 FC                 ROL $FC
-00258  8154  C8                    INY
-00259  8155  C0 04                 CPY #$04
-00260  8157  D0 F7                 BNE @SHIFTLEFT
-00261  8159             
-00262  8159  68                    PLA
-00263  815A                        
-00264  815A  38                    SEC
-00265  815B  E9 30                 SBC #'0'
-00266  815D  05 FB                 ORA $FB
-00267  815F  85 FB                 STA $FB
-00268  8161                        
-00269  8161  4C 41 81              JMP PARSEHEX
+00168  80DA  C8                    INY
+00169  80DB  91 2B                 STA (TXTTAB),Y
+00170  80DD                        
+00171  80DD                        
+00172  80DD  18                    CLC
+00173  80DE  A5 2B                 LDA TXTTAB
+00174  80E0  69 02                 ADC #$02
+00175  80E2  85 2D                 STA $2D
+00176  80E4  85 2F                 STA $2F
+00177  80E6  85 31                 STA $31
+00178  80E8  A5 2C                 LDA TXTTAB+1
+00179  80EA  69 00                 ADC #$00
+00180  80EC  85 2E                 STA $2E
+00181  80EE  85 30                 STA $30
+00182  80F0  85 32                 STA $32
+00183  80F2                        
+00184  80F2  AD 2B 83              LDA ORIGTEXTAB
+00185  80F5  85 2B                 STA TXTTAB
+00186  80F7  AD 2C 83              LDA ORIGTEXTAB+1
+00187  80FA  85 2C                 STA TXTTAB+1
+00188  80FC                        
+00189  80FC  A9 07                 LDA #NUM_OF_LINES
+00190  80FE  8D E1 82              STA DATALINES
+00191  8101             
+00192  8101  60                    RTS
+00193  8102             
+00194  8102             INCSPRDATA 
+00195  8102  18                    CLC
+00196  8103  A5 FB                 LDA SPR_ADDR
+00197  8105  69 01                 ADC #$01
+00198  8107  85 FB                 STA SPR_ADDR
+00199  8109  A5 FC                 LDA SPR_ADDR+1
+00200  810B  69 00                 ADC #00
+00201  810D  85 FC                 STA SPR_ADDR+1
+00202  810F  60                    RTS
+00203  8110                        
+00204  8110             INCLINENUM 
+00205  8110  18                    CLC
+00206  8111  A5 F9                 LDA LINE_NUMBER
+00207  8113  69 0A                 ADC #$0A
+00208  8115  85 F9                 STA LINE_NUMBER
+00209  8117  A5 FA                 LDA LINE_NUMBER+1
+00210  8119  69 00                 ADC #00
+00211  811B  85 FA                 STA LINE_NUMBER+1
+00212  811D  60                    RTS
+00213  811E             CHECKIFNUM 
+00214  811E  C9 30                 CMP #'0'
+00215  8120  90 05                 BCC NOTANUMBER
+00216  8122  C9 39                 CMP #'9'+1
+00217  8124  B0 01                 BCS NOTANUMBER
+00218  8126  60                    RTS
+00219  8127             NOTANUMBER 
+00220  8127  A9 00                 LDA #$00                ;RETURN 1 IF IT'S NOT A NUMBER
+00221  8129  60                    RTS
+00222  812A             
+00223  812A             CHECKIFALPHA 
+00224  812A  C9 01                 CMP #'A'
+00225  812C  90 05                 BCC NOTALPHA
+00226  812E  C9 06                 CMP #'F'+1
+00227  8130  B0 01                 BCS NOTALPHA
+00228  8132  60                    RTS
+00229  8133             NOTALPHA
+00230  8133  A9 00                 LDA #$00
+00231  8135  60                    RTS
+00232  8136             CHECKIFHEX 
+00233  8136  20 1E 81              JSR CHECKIFNUM
+00234  8139  F0 08                 BEQ RETURNTRUE
+00235  813B  20 2A 81              JSR CHECKIFALPHA
+00236  813E  F0 03                 BEQ RETURNTRUE
+00237  8140  A9 00                 LDA #$00
+00238  8142  60                    RTS
+00239  8143             RETURNTRUE 
+00240  8143  60                    RTS
+00241  8144             
+00242  8144             PARSEHEX
+00243  8144  E8                    INX
+00244  8145  BD 00 02              LDA $0200,X
+00245  8148                        ; BEQ ENDOFHEX
+00246  8148                        ;CMP #$20
+00247  8148                        ;BEQ ENDOFHEX
+00248  8148             
+00249  8148  C9 30                 CMP #'0'                ; COMPARE TO '0' CHAR
+00250  814A  90 3A                 BCC PASEHEXERROR        ; IF LESS THEN '0' THEN ERROR
+00251  814C             
+00252  814C  C9 40                 CMP #$40                ;COMPARE TO 'A' IF BIGGER THEN NOT A DIGIT
+00253  814E  B0 17                 BCS HEXNUM
+00254  8150             
+00255  8150  48                    PHA
+00256  8151  A0 00                 LDY #$00
+00257  8153             @SHIFTLEFT 
+00258  8153  06 FB                 ASL $FB
+00259  8155  26 FC                 ROL $FC
+00260  8157  C8                    INY
+00261  8158  C0 04                 CPY #$04
+00262  815A  D0 F7                 BNE @SHIFTLEFT
+00263  815C             
+00264  815C  68                    PLA
+00265  815D                        
+00266  815D  38                    SEC
+00267  815E  E9 30                 SBC #'0'
+00268  8160  05 FB                 ORA $FB
+00269  8162  85 FB                 STA $FB
 00270  8164                        
-00271  8164             HEXNUM
-00272  8164  C9 41                 CMP #$41                        ; IS IT SMALLER THEN 'A'
-00273  8166  90 1B                 BCC PASEHEXERROR                ; IF SO THEN ERROR
-00274  8168  C9 47                 CMP #$46+1                      ; IF ITS GREATER THE
-00275  816A  B0 17                 BCS PASEHEXERROR
-00276  816C             
-00277  816C  48                    PHA
-00278  816D  A0 00                 LDY #$00
-00279  816F             SHIFTLEFT  
-00280  816F  06 FB                 ASL $FB
-00281  8171  26 FC                 ROL $FC
-00282  8173  C8                    INY
-00283  8174  C0 04                 CPY #$04
-00284  8176  D0 F7                 BNE SHIFTLEFT
-00285  8178  68                    PLA
-00286  8179             
-00287  8179  38                    SEC
-00288  817A  E9 37                 SBC #$41-10
-00289  817C  05 FB                 ORA $FB
-00290  817E  85 FB                 STA $FB
-00291  8180             
-00292  8180  4C 41 81              JMP PARSEHEX
+00271  8164  4C 44 81              JMP PARSEHEX
+00272  8167                        
+00273  8167             HEXNUM
+00274  8167  C9 41                 CMP #$41                        ; IS IT SMALLER THEN 'A'
+00275  8169  90 1B                 BCC PASEHEXERROR                ; IF SO THEN ERROR
+00276  816B  C9 47                 CMP #$46+1                      ; IF ITS GREATER THE
+00277  816D  B0 17                 BCS PASEHEXERROR
+00278  816F             
+00279  816F  48                    PHA
+00280  8170  A0 00                 LDY #$00
+00281  8172             SHIFTLEFT  
+00282  8172  06 FB                 ASL $FB
+00283  8174  26 FC                 ROL $FC
+00284  8176  C8                    INY
+00285  8177  C0 04                 CPY #$04
+00286  8179  D0 F7                 BNE SHIFTLEFT
+00287  817B  68                    PLA
+00288  817C             
+00289  817C  38                    SEC
+00290  817D  E9 37                 SBC #$41-10
+00291  817F  05 FB                 ORA $FB
+00292  8181  85 FB                 STA $FB
 00293  8183             
-00294  8183             ENDOFHEX
-00295  8183             PASEHEXERROR 
-00296  8183  60                    RTS
-00297  8184             PARSEDEC
-00298  8184  A9 00                 LDA #$00
-00299  8186  85 FB                 STA $FB
-00300  8188  85 FC                 STA $FC
-00301  818A             READNUMBER 
-00302  818A  BD 00 02              LDA $0200,X
-00303  818D  C9 00                 CMP #$00
-00304  818F  F0 22                 BEQ ENDOFNUM
-00305  8191  C9 20                 CMP #$20
-00306  8193  F0 F5                 BEQ READNUMBER
-00307  8195             
-00308  8195  C9 30                 CMP #'0'                ; COMPARE TO '0' CHAR
-00309  8197  90 1A                 BCC NOTDIGIT        ; IF LESS THEN '0' THEN ERROR
-00310  8199             
-00311  8199  C9 40                 CMP #$40            ;COMPARE TO 'A' IF BIGGER THEN NOT A DIGIT
-00312  819B  B0 16                 BCS NOTDIGIT
-00313  819D             
-00314  819D  38                    SEC
-00315  819E  E9 30                 SBC #$30
-00316  81A0                        
-00317  81A0  48                    PHA
-00318  81A1  20 B4 81              JSR MULBY10
-00319  81A4  68                    PLA
-00320  81A5             
-00321  81A5  18                    CLC
-00322  81A6  65 FB                 ADC $FB
-00323  81A8  85 FB                 STA $FB
-00324  81AA  A5 FC                 LDA $FC
-00325  81AC  69 00                 ADC #$00
-00326  81AE  85 FC                 STA $FC
-00327  81B0  E8                    INX
-00328  81B1  D0 D7                 BNE READNUMBER
-00329  81B3             
-00330  81B3             ENDOFNUM   
-00331  81B3             NOTDIGIT
-00332  81B3  60                    RTS
-00333  81B4             
-00334  81B4             MULBY10
-00335  81B4                        ; 1. הכפלה ב-2 (N * 2)
-00336  81B4  06 FB                 ASL $FB
-00337  81B6  26 FC                 ROL $FC
-00338  81B8             
-00339  81B8                        ; 2. שמירת (N * 2) בזיכרון זמני
-00340  81B8  A5 FB                 LDA $FB
-00341  81BA  8D 85 82              STA TMPFB
-00342  81BD  A5 FC                 LDA $FC
-00343  81BF  8D 86 82              STA TMPFB+1
-00344  81C2             
-00345  81C2                        ; 3. שתי הזזות נוספות של הערך הקיים כדי להגיע ל-(N * 8)
-00346  81C2  06 FB                 ASL $FB
-00347  81C4  26 FC                 ROL $FC         ; כעת זה N * 4
-00348  81C6  06 FB                 ASL $FB
-00349  81C8  26 FC                 ROL $FC         ; כעת זה N * 8
-00350  81CA             
-00351  81CA                        ; 4. חיבור: (N * 8) + (N * 2) = N * 10
-00352  81CA  18                    CLC
-00353  81CB  A5 FB                 LDA $FB
-00354  81CD  6D 85 82              ADC TMPFB
-00355  81D0  85 FB                 STA $FB
-00356  81D2  A5 FC                 LDA $FC
-00357  81D4  6D 86 82              ADC TMPFB+1
-00358  81D7  85 FC                 STA $FC
-00359  81D9             
-00360  81D9  60                    RTS
-00361  81DA             
-00362  81DA             
-00363  81DA             
-00364  81DA                        ; DIVIDE A BY 10
-00365  81DA                        ; RESULT IN X REMINDER IN A
-00366  81DA             
-00367  81DA             DEVIDEBY10 
-00368  81DA  A2 00                 LDX #$00
-00369  81DC             DIVLOOP
-00370  81DC  C9 0A                 CMP #$0A
-00371  81DE  90 07                 BCC ENDDIV
-00372  81E0  E8                    INX
-00373  81E1  38                    SEC
-00374  81E2  E9 0A                 SBC #$0A
-00375  81E4  4C DC 81              JMP DIVLOOP
-00376  81E7             ENDDIV
-00377  81E7  60                    RTS
-00378  81E8             
-00379  81E8             ; ================================================================
-00380  81E8             ; ROUTINE: DEVIDEBY10_BINARY
-00381  81E8             ; DIVIDES AN 8-BIT UNSIGNED INTEGER BY 10 USING BINARY LONG DIVISION.
-00382  81E8             ;
-00383  81E8             ; INPUTS:  A = DIVIDEND (0 - 255)
-00384  81E8             ; OUTPUTS: X = QUOTIENT (A / 10)
-00385  81E8             ;          A = REMAINDER (A % 10)
-00386  81E8             ; PRESERVES: Y REGISTER (UNTOUCHED, SAFE FOR OUTER LOOPS)
-00387  81E8             ; REQUIRES: 1 BYTE OF ZERO PAGE OR RAM MEMORY (TMPFB)
-00388  81E8             ; ================================================================
-00389  81E8             
-00390  81E8             DEVIDEBY10_BINARY 
-00391  81E8  8D 85 82              STA TMPFB           ; STORE THE ORIGINAL DIVIDEND IN A TEMPORARY BUFFER
-00392  81EB  A9 00                 LDA #$00            ; CLEAR ACCUMULATOR (WILL ACCUMULATE THE REMAINDER)
-00393  81ED  A2 08                 LDX #$08            ; LOOP COUNTER: 8 BITS TO PROCESS
-00394  81EF             
-00395  81EF             @DIVLOOP
-00396  81EF  0E 85 82              ASL TMPFB           ; SHIFT THE MSB OF THE DIVIDEND OUT INTO THE CARRY FLAG.
-00397  81F2                        ; (THIS ALSO FORCES BIT 0 OF TMPFB TO BECOME 0)
-00398  81F2                        
-00399  81F2  2A                    ROL                 ; ROTATE THE CARRY BIT INTO THE REMAINDER ACCUMULATOR (A)
-00400  81F3                        
-00401  81F3  C9 0A                 CMP #10             ; COMPARE THE ACCUMULATED REMAINDER AGAINST THE DIVISOR (10)
-00402  81F5  90 05                 BCC @SKIPSUB        ; IF REMAINDER < 10, BRANCH AND LEAVE BIT 0 OF TMPFB AS 0
-00403  81F7                        
-00404  81F7  E9 0A                 SBC #10             ; IF REMAINDER >= 10, SUBTRACT 10 FROM THE REMAINDER
-00405  81F9  EE 85 82              INC TMPFB           ; INCREMENT TMPFB TO SET BIT 0 TO 1 (THIS IS THE QUOTIENT BIT)
-00406  81FC             
-00407  81FC             @SKIPSUB
-00408  81FC  CA                    DEX                 ; DECREMENT THE BIT LOOP COUNTER
-00409  81FD  D0 F0                 BNE @DIVLOOP        ; REPEAT THE LOOP UNTIL ALL 8 BITS ARE PROCESSED
-00410  81FF             
-00411  81FF  AE 85 82              LDX TMPFB           ; MOVE THE FINAL COMPLETED QUOTIENT FROM THE BUFFER INTO X
-00412  8202                        
-00413  8202                        ; AT THIS POINT, A ALREADY RETAINS THE CORRECT REMAINDER (A = A % 10)
-00414  8202  60                    RTS
-00415  8203             
-00416  8203             NUMTOASCII 
-00417  8203                        ; CONVERT INT IN A TO ASCII NUMBER
-00418  8203                        ; A = NUMBER TO CONVERTIMGNUMTOADDRESS
-00419  8203  8C 83 82              STY TMPY
-00420  8206             
-00421  8206  A0 00                 LDY #$00
-00422  8208             CONVERTLOOP 
-00423  8208  20 E8 81              JSR DEVIDEBY10_BINARY
-00424  820B                        
-00425  820B  18                    CLC
-00426  820C  69 30                 ADC #$30
-00427  820E                        
-00428  820E  48                    PHA
-00429  820F  C8                    INY
-00430  8210             
-00431  8210  8A                    TXA
-00432  8211  C9 00                 CMP #$00
-00433  8213  D0 F3                 BNE CONVERTLOOP
-00434  8215             
-00435  8215  98                    TYA
-00436  8216  AA                    TAX
-00437  8217  AC 83 82              LDY TMPY
-00438  821A             @PRINTLOOP 
-00439  821A  68                    PLA
-00440  821B  91 2B                 STA (TXTTAB),Y
-00441  821D  C8                    INY
-00442  821E  CA                    DEX
-00443  821F  D0 F9                 BNE @PRINTLOOP
-00444  8221                        
-00445  8221  60                    RTS
-00446  8222             
-00447  8222             
-00448  8222             
-00449  8222             PRINTHELP
-00450  8222  A2 00                 LDX #$00
-00451  8224             PRINTLOOP
-00452  8224  BD 89 82              LDA HELPTEXT,X
-00453  8227  F0 06                 BEQ ENDSTRING
-00454  8229  20 D2 FF              JSR CHAROUT
-00455  822C  E8                    INX
-00456  822D  D0 F5                 BNE PRINTLOOP
-00457  822F             ENDSTRING
-00458  822F  60                    RTS
-00459  8230             FINDENDOFBASIC 
-00460  8230  A5 2B                 LDA TXTTAB
-00461  8232  85 FD                 STA WRITE_PTR
-00462  8234  A5 2C                 LDA TXTTAB+1
-00463  8236  85 FE                 STA WRITE_PTR+1
-00464  8238             
-00465  8238  A0 01                 LDY #$01
-00466  823A  B1 FD                 LDA (WRITE_PTR),Y
-00467  823C  D0 09                 BNE HASPROGRAM
-00468  823E                        ;FOUND BASIC
-00469  823E  A9 E8                 LDA #$E8
-00470  8240  85 F9                 STA LINE_NUMBER
-00471  8242  A9 03                 LDA #$03
-00472  8244  85 FA                 STA LINE_NUMBER+1
-00473  8246  60                    RTS
-00474  8247             
-00475  8247             HASPROGRAM 
-00476  8247  A0 01                 LDY #$01
-00477  8249  B1 FD                 LDA (WRITE_PTR),Y
-00478  824B  85 F8                 STA NEXT_LINE+1
-00479  824D  88                    DEY
-00480  824E  B1 FD                 LDA (WRITE_PTR),Y
-00481  8250  85 F7                 STA NEXT_LINE
-00482  8252             
-00483  8252  A0 01                 LDY #$01
-00484  8254  B1 F7                 LDA (NEXT_LINE),Y
-00485  8256  F0 0B                 BEQ ENDOFPROGRAM
-00486  8258             
-00487  8258  A5 F7                 LDA NEXT_LINE
-00488  825A  85 FD                 STA WRITE_PTR
-00489  825C                        
-00490  825C  A5 F8                 LDA NEXT_LINE+1
-00491  825E  85 FE                 STA WRITE_PTR+1
-00492  8260             
-00493  8260  4C 47 82              JMP HASPROGRAM
-00494  8263             
-00495  8263             ENDOFPROGRAM 
-00496  8263             
-00497  8263  A0 02                 LDY #$02
-00498  8265  18                    CLC
-00499  8266  B1 FD                 LDA (WRITE_PTR),Y
-00500  8268  69 0A                 ADC #$0A
-00501  826A  85 F9                 STA LINE_NUMBER
-00502  826C  C8                    INY
-00503  826D  B1 FD                 LDA (WRITE_PTR),Y
-00504  826F  69 00                 ADC #$00
-00505  8271  85 FA                 STA LINE_NUMBER+1
-00506  8273             
-00507  8273  A5 F7                 LDA NEXT_LINE
-00508  8275  85 2B                 STA TXTTAB
-00509  8277  A5 F8                 LDA NEXT_LINE+1
-00510  8279  85 2C                 STA TXTTAB+1
-00511  827B             
-00512  827B  60                    RTS
-00513  827C             
-00514  827C             SPRITESTRING 
-00515  827C  53 50 52              BYTE "SPRITE",0
-00516  8283  00         TMPY       BYTE 0
-00517  8284  00         TMPX       BYTE 0
-00518  8285  00 00      TMPFB      BYTE 0,0
-00519  8287             
-00520  8287  09         BYTESINLINE BYTE BYTES_IN_LINE
-00521  8288  07         DATALINES  BYTE NUM_OF_LINES
-00522  8289             
-00523  8289             ; COLORS: 0=BLACK, 1=WHITE, 2=RED, 3=CYAN, 4=PURPLE, 5=GREEN, 6=BLUE, 7=YELLOW, 8=ORANGE, 9=BROWN, 10=LIGHT RED, 11=DARK GRAY, 12=MEDIUM GRAY, 13=LIGHT GREEN, 14=LIGHT BLUE, 15=LIGHT GRAY
-00524  8289             
-00525  8289             HELPTEXT
-00526  8289  0D                    BYTE $0D                ; CARRIAGE RETURN (CR)
-00527  828A                        
-00528  828A                        ; SYNTAX LINE: TITLE IN YELLOW, DESCRIPTION IN WHITE
-00529  828A  9E 53 59              BYTE $9E, "SYNTAX: ", $05, "SPRITE [FRAME/ADDR]", $0D
-00530  82A8                        
-00531  82A8                        ; HEX EXAMPLE: TITLE IN CYAN, DESCRIPTION IN WHITE
-00532  82A8  9F 48 45              BYTE $9F, "HEX: ", $05, "$C0 OR $3000", $0D
-00533  82BC                        
-00534  82BC                        ; DECIMAL EXAMPLE: TITLE IN GREEN, DESCRIPTION IN WHITE
-00535  82BC  1E 44 45              BYTE $1E, "DEC: ", $05, "192 OR 12288", $0D
-00536  82D0                        
-00537  82D0                        ; RESET TEXT COLOR TO SYSTEM DEFAULT (LIGHT BLUE) AND NULL-TERMINATE STRING
-00538  82D0  9A 00                 BYTE $9A, $00
-00539  82D2             
-00540  82D2  01 08      ORIGTEXTAB BYTE 01,08
-00541  82D4             
-00542  82D4             
-00543  82D4                        *=$C000
-00544  C000             INIT
-00545  C000  A9 00                 LDA #<CRUNCHER
-00546  C002  8D 04 03              STA $304
-00547  C005  A9 80                 LDA #>CRUNCHER
-00548  C007  8D 05 03              STA $305
-00549  C00A             
-00550  C00A                        
-00551  C00A  60                    RTS
-00552  C00B             
+00294  8183  4C 44 81              JMP PARSEHEX
+00295  8186             
+00296  8186             ENDOFHEX
+00297  8186             PASEHEXERROR 
+00298  8186  60                    RTS
+00299  8187             PARSEDEC
+00300  8187  A9 00                 LDA #$00
+00301  8189  85 FB                 STA $FB
+00302  818B  85 FC                 STA $FC
+00303  818D             READNUMBER 
+00304  818D  BD 00 02              LDA $0200,X
+00305  8190  C9 00                 CMP #$00
+00306  8192  F0 22                 BEQ ENDOFNUM
+00307  8194  C9 20                 CMP #$20
+00308  8196  F0 F5                 BEQ READNUMBER
+00309  8198             
+00310  8198  C9 30                 CMP #'0'                ; COMPARE TO '0' CHAR
+00311  819A  90 1A                 BCC NOTDIGIT        ; IF LESS THEN '0' THEN ERROR
+00312  819C             
+00313  819C  C9 40                 CMP #$40            ;COMPARE TO 'A' IF BIGGER THEN NOT A DIGIT
+00314  819E  B0 16                 BCS NOTDIGIT
+00315  81A0             
+00316  81A0  38                    SEC
+00317  81A1  E9 30                 SBC #$30
+00318  81A3                        
+00319  81A3  48                    PHA
+00320  81A4  20 B7 81              JSR MULBY10
+00321  81A7  68                    PLA
+00322  81A8             
+00323  81A8  18                    CLC
+00324  81A9  65 FB                 ADC $FB
+00325  81AB  85 FB                 STA $FB
+00326  81AD  A5 FC                 LDA $FC
+00327  81AF  69 00                 ADC #$00
+00328  81B1  85 FC                 STA $FC
+00329  81B3  E8                    INX
+00330  81B4  D0 D7                 BNE READNUMBER
+00331  81B6             
+00332  81B6             ENDOFNUM   
+00333  81B6             NOTDIGIT
+00334  81B6  60                    RTS
+00335  81B7             
+00336  81B7             MULBY10
+00337  81B7                        ; 1. הכפלה ב-2 (N * 2)
+00338  81B7  06 FB                 ASL $FB
+00339  81B9  26 FC                 ROL $FC
+00340  81BB             
+00341  81BB                        ; 2. שמירת (N * 2) בזיכרון זמני
+00342  81BB  A5 FB                 LDA $FB
+00343  81BD  8D DE 82              STA TMPFB
+00344  81C0  A5 FC                 LDA $FC
+00345  81C2  8D DF 82              STA TMPFB+1
+00346  81C5             
+00347  81C5                        ; 3. שתי הזזות נוספות של הערך הקיים כדי להגיע ל-(N * 8)
+00348  81C5  06 FB                 ASL $FB
+00349  81C7  26 FC                 ROL $FC         ; כעת זה N * 4
+00350  81C9  06 FB                 ASL $FB
+00351  81CB  26 FC                 ROL $FC         ; כעת זה N * 8
+00352  81CD             
+00353  81CD                        ; 4. חיבור: (N * 8) + (N * 2) = N * 10
+00354  81CD  18                    CLC
+00355  81CE  A5 FB                 LDA $FB
+00356  81D0  6D DE 82              ADC TMPFB
+00357  81D3  85 FB                 STA $FB
+00358  81D5  A5 FC                 LDA $FC
+00359  81D7  6D DF 82              ADC TMPFB+1
+00360  81DA  85 FC                 STA $FC
+00361  81DC             
+00362  81DC  60                    RTS
+00363  81DD             
+00364  81DD             
+00365  81DD             
+00366  81DD                        ; DIVIDE A BY 10
+00367  81DD                        ; RESULT IN X REMINDER IN A
+00368  81DD             
+00369  81DD             DEVIDEBY10 
+00370  81DD  A2 00                 LDX #$00
+00371  81DF             DIVLOOP
+00372  81DF  C9 0A                 CMP #$0A
+00373  81E1  90 07                 BCC ENDDIV
+00374  81E3  E8                    INX
+00375  81E4  38                    SEC
+00376  81E5  E9 0A                 SBC #$0A
+00377  81E7  4C DF 81              JMP DIVLOOP
+00378  81EA             ENDDIV
+00379  81EA  60                    RTS
+00380  81EB             
+00381  81EB             ; ================================================================
+00382  81EB             ; ROUTINE: DEVIDEBY10_BINARY
+00383  81EB             ; DIVIDES AN 8-BIT UNSIGNED INTEGER BY 10 USING BINARY LONG DIVISION.
+00384  81EB             ;
+00385  81EB             ; INPUTS:  A = DIVIDEND (0 - 255)
+00386  81EB             ; OUTPUTS: X = QUOTIENT (A / 10)
+00387  81EB             ;          A = REMAINDER (A % 10)
+00388  81EB             ; PRESERVES: Y REGISTER (UNTOUCHED, SAFE FOR OUTER LOOPS)
+00389  81EB             ; REQUIRES: 1 BYTE OF ZERO PAGE OR RAM MEMORY (TMPFB)
+00390  81EB             ; ================================================================
+00391  81EB             
+00392  81EB             DEVIDEBY10_BINARY 
+00393  81EB  8D DE 82              STA TMPFB           ; STORE THE ORIGINAL DIVIDEND IN A TEMPORARY BUFFER
+00394  81EE  A9 00                 LDA #$00            ; CLEAR ACCUMULATOR (WILL ACCUMULATE THE REMAINDER)
+00395  81F0  A2 08                 LDX #$08            ; LOOP COUNTER: 8 BITS TO PROCESS
+00396  81F2             
+00397  81F2             @DIVLOOP
+00398  81F2  0E DE 82              ASL TMPFB           ; SHIFT THE MSB OF THE DIVIDEND OUT INTO THE CARRY FLAG.
+00399  81F5                        ; (THIS ALSO FORCES BIT 0 OF TMPFB TO BECOME 0)
+00400  81F5                        
+00401  81F5  2A                    ROL                 ; ROTATE THE CARRY BIT INTO THE REMAINDER ACCUMULATOR (A)
+00402  81F6                        
+00403  81F6  C9 0A                 CMP #10             ; COMPARE THE ACCUMULATED REMAINDER AGAINST THE DIVISOR (10)
+00404  81F8  90 05                 BCC @SKIPSUB        ; IF REMAINDER < 10, BRANCH AND LEAVE BIT 0 OF TMPFB AS 0
+00405  81FA                        
+00406  81FA  E9 0A                 SBC #10             ; IF REMAINDER >= 10, SUBTRACT 10 FROM THE REMAINDER
+00407  81FC  EE DE 82              INC TMPFB           ; INCREMENT TMPFB TO SET BIT 0 TO 1 (THIS IS THE QUOTIENT BIT)
+00408  81FF             
+00409  81FF             @SKIPSUB
+00410  81FF  CA                    DEX                 ; DECREMENT THE BIT LOOP COUNTER
+00411  8200  D0 F0                 BNE @DIVLOOP        ; REPEAT THE LOOP UNTIL ALL 8 BITS ARE PROCESSED
+00412  8202             
+00413  8202  AE DE 82              LDX TMPFB           ; MOVE THE FINAL COMPLETED QUOTIENT FROM THE BUFFER INTO X
+00414  8205                        
+00415  8205                        ; AT THIS POINT, A ALREADY RETAINS THE CORRECT REMAINDER (A = A % 10)
+00416  8205  60                    RTS
+00417  8206             
+00418  8206             NUMTOASCII 
+00419  8206                        ; CONVERT INT IN A TO ASCII NUMBER
+00420  8206                        ; A = NUMBER TO CONVERTIMGNUMTOADDRESS
+00421  8206  8C DC 82              STY TMPY
+00422  8209             
+00423  8209  A0 00                 LDY #$00
+00424  820B             CONVERTLOOP 
+00425  820B  20 EB 81              JSR DEVIDEBY10_BINARY
+00426  820E                        
+00427  820E  18                    CLC
+00428  820F  69 30                 ADC #$30
+00429  8211                        
+00430  8211  48                    PHA
+00431  8212  C8                    INY
+00432  8213             
+00433  8213  8A                    TXA
+00434  8214  C9 00                 CMP #$00
+00435  8216  D0 F3                 BNE CONVERTLOOP
+00436  8218             
+00437  8218  98                    TYA
+00438  8219  AA                    TAX
+00439  821A  AC DC 82              LDY TMPY
+00440  821D             @PRINTLOOP 
+00441  821D  68                    PLA
+00442  821E  91 2B                 STA (TXTTAB),Y
+00443  8220  C8                    INY
+00444  8221  CA                    DEX
+00445  8222  D0 F9                 BNE @PRINTLOOP
+00446  8224                        
+00447  8224  60                    RTS
+00448  8225             
+00449  8225             
+00450  8225             
+00451  8225             PRINTHELP
+00452  8225  A2 00                 LDX #$00
+00453  8227             PRINTLOOP
+00454  8227  BD E2 82              LDA HELPTEXT,X
+00455  822A  F0 06                 BEQ ENDSTRING
+00456  822C  20 D2 FF              JSR CHAROUT
+00457  822F  E8                    INX
+00458  8230  D0 F5                 BNE PRINTLOOP
+00459  8232             ENDSTRING
+00460  8232  60                    RTS
+00461  8233             FINDENDOFBASIC 
+00462  8233  A5 2B                 LDA TXTTAB
+00463  8235  85 FD                 STA WRITE_PTR
+00464  8237  A5 2C                 LDA TXTTAB+1
+00465  8239  85 FE                 STA WRITE_PTR+1
+00466  823B             
+00467  823B  A0 01                 LDY #$01
+00468  823D  B1 FD                 LDA (WRITE_PTR),Y
+00469  823F  D0 09                 BNE HASPROGRAM
+00470  8241                        
+00471  8241                        ; NO BASIC JUST SET LINE NUMBER TO 1000
+00472  8241  A9 E8                 LDA #$E8
+00473  8243  85 F9                 STA LINE_NUMBER
+00474  8245  A9 03                 LDA #$03
+00475  8247  85 FA                 STA LINE_NUMBER+1
+00476  8249  60                    RTS
+00477  824A                        
+00478  824A                        ;FOUND BASIC PROGRAM, ADD NEW CODE TO THE END OF THE PROGRAM
+00479  824A                        ;AND SET THE NEW LINES NUMBER ACCORDINGLY TO THE LAST NEW NUMBER
+00480  824A             HASPROGRAM 
+00481  824A  A0 01                 LDY #$01
+00482  824C  B1 FD                 LDA (WRITE_PTR),Y
+00483  824E  85 F8                 STA NEXT_LINE+1
+00484  8250  88                    DEY
+00485  8251  B1 FD                 LDA (WRITE_PTR),Y
+00486  8253  85 F7                 STA NEXT_LINE
+00487  8255             
+00488  8255  A0 01                 LDY #$01
+00489  8257  B1 F7                 LDA (NEXT_LINE),Y
+00490  8259  F0 0B                 BEQ ENDOFPROGRAM
+00491  825B             
+00492  825B  A5 F7                 LDA NEXT_LINE
+00493  825D  85 FD                 STA WRITE_PTR
+00494  825F                        
+00495  825F  A5 F8                 LDA NEXT_LINE+1
+00496  8261  85 FE                 STA WRITE_PTR+1
+00497  8263             
+00498  8263  4C 4A 82              JMP HASPROGRAM
+00499  8266             
+00500  8266             ENDOFPROGRAM 
+00501  8266             
+00502  8266  A0 02                 LDY #$02
+00503  8268  18                    CLC
+00504  8269  B1 FD                 LDA (WRITE_PTR),Y
+00505  826B  69 0A                 ADC #$0A
+00506  826D  85 F9                 STA LINE_NUMBER
+00507  826F  C8                    INY
+00508  8270  B1 FD                 LDA (WRITE_PTR),Y
+00509  8272  69 00                 ADC #$00
+00510  8274  85 FA                 STA LINE_NUMBER+1
+00511  8276             
+00512  8276  A5 F7                 LDA NEXT_LINE
+00513  8278  85 2B                 STA TXTTAB
+00514  827A  A5 F8                 LDA NEXT_LINE+1
+00515  827C  85 2C                 STA TXTTAB+1
+00516  827E             
+00517  827E  60                    RTS
+00518  827F             
+00519  827F             INJECTREM
+00520  827F  A5 2B                 LDA TXTTAB
+00521  8281  85 F7                 STA NEXT_LINE
+00522  8283  A5 2C                 LDA TXTTAB+1
+00523  8285  85 F8                 STA NEXT_LINE+1
+00524  8287             
+00525  8287  A0 02                 LDY #$02
+00526  8289  A5 F9                 LDA LINE_NUMBER
+00527  828B  91 2B                 STA (TXTTAB),Y
+00528  828D  C8                    INY
+00529  828E  A5 FA                 LDA LINE_NUMBER+1
+00530  8290  91 2B                 STA (TXTTAB),Y
+00531  8292                        
+00532  8292  C8                    INY
+00533  8293  A9 8F                 LDA #$8F ; REM TOKEN
+00534  8295  91 2B                 STA (TXTTAB),Y
+00535  8297                        
+00536  8297  C8                    INY
+00537  8298  A2 00                 LDX #$00
+00538  829A             INJECTSTRING 
+00539  829A  BD C7 82              LDA REMSTRING,X
+00540  829D  91 2B                 STA (TXTTAB),Y
+00541  829F  F0 04                 BEQ ENDOFSTRING
+00542  82A1  C8                    INY
+00543  82A2  E8                    INX
+00544  82A3  D0 F5                 BNE INJECTSTRING
+00545  82A5             
+00546  82A5             ENDOFSTRING 
+00547  82A5                        ; FINISHED THE STRING
+00548  82A5                        
+00549  82A5                        ; PUT 00 AT END OF LINE
+00550  82A5  A9 00                 LDA #$00
+00551  82A7  91 2B                 STA (TXTTAB),Y
+00552  82A9  C8                    INY
+00553  82AA                        
+00554  82AA  98                    TYA
+00555  82AB  A0 00                 LDY #$00
+00556  82AD  18                    CLC
+00557  82AE  65 2B                 ADC TXTTAB
+00558  82B0  85 2B                 STA TXTTAB
+00559  82B2                        
+00560  82B2  A5 2C                 LDA TXTTAB+1
+00561  82B4  69 00                 ADC #$00
+00562  82B6  85 2C                 STA TXTTAB+1
+00563  82B8                        
+00564  82B8  A0 00                 LDY #$00
+00565  82BA  A5 2B                 LDA TXTTAB
+00566  82BC  91 F7                 STA (NEXT_LINE),Y
+00567  82BE  C8                    INY
+00568  82BF  A5 2C                 LDA TXTTAB+1
+00569  82C1  91 F7                 STA (NEXT_LINE),Y
+00570  82C3             
+00571  82C3  20 10 81              JSR INCLINENUM
+00572  82C6             
+00573  82C6  60                    RTS
+00574  82C7                        
+00575  82C7                        
+00576  82C7             
+00577  82C7             REMSTRING
+00578  82C7  20 53 50              BYTE " SPRITE IMAGE",0
+00579  82D5                        
+00580  82D5                        
+00581  82D5             SPRITESTRING 
+00582  82D5  53 50 52              BYTE "SPRITE",0
+00583  82DC  00         TMPY       BYTE 0
+00584  82DD  00         TMPX       BYTE 0
+00585  82DE  00 00      TMPFB      BYTE 0,0
+00586  82E0             
+00587  82E0  09         BYTESINLINE BYTE BYTES_IN_LINE
+00588  82E1  07         DATALINES  BYTE NUM_OF_LINES
+00589  82E2             
+00590  82E2             ; COLORS: 0=BLACK, 1=WHITE, 2=RED, 3=CYAN, 4=PURPLE, 5=GREEN, 6=BLUE, 7=YELLOW, 8=ORANGE, 9=BROWN, 10=LIGHT RED, 11=DARK GRAY, 12=MEDIUM GRAY, 13=LIGHT GREEN, 14=LIGHT BLUE, 15=LIGHT GRAY
+00591  82E2             
+00592  82E2             HELPTEXT
+00593  82E2  0D                    BYTE $0D                ; CARRIAGE RETURN (CR)
+00594  82E3                        
+00595  82E3                        ; SYNTAX LINE: TITLE IN YELLOW, DESCRIPTION IN WHITE
+00596  82E3  9E 53 59              BYTE $9E, "SYNTAX: ", $05, "SPRITE [FRAME/ADDR]", $0D
+00597  8301                        
+00598  8301                        ; HEX EXAMPLE: TITLE IN CYAN, DESCRIPTION IN WHITE
+00599  8301  9F 48 45              BYTE $9F, "HEX: ", $05, "$C0 OR $3000", $0D
+00600  8315                        
+00601  8315                        ; DECIMAL EXAMPLE: TITLE IN GREEN, DESCRIPTION IN WHITE
+00602  8315  1E 44 45              BYTE $1E, "DEC: ", $05, "192 OR 12288", $0D
+00603  8329                        
+00604  8329                        ; RESET TEXT COLOR TO SYSTEM DEFAULT (LIGHT BLUE) AND NULL-TERMINATE STRING
+00605  8329  9A 00                 BYTE $9A, $00
+00606  832B             
+00607  832B  01 08      ORIGTEXTAB BYTE 01,08
+00608  832D             
+00609  832D             
+00610  832D                        *=$C000
+00611  C000             INIT
+00612  C000  A9 00                 LDA #<CRUNCHER
+00613  C002  8D 04 03              STA $304
+00614  C005  A9 80                 LDA #>CRUNCHER
+00615  C007  8D 05 03              STA $305
+00616  C00A             
+00617  C00A                        
+00618  C00A  60                    RTS
+00619  C00B             
 
-******* 60 Label(s) *******
-bytesInLine = $8287 
-checkIfAlpha = $8127 
-checkIfHex = $8133 
-checkIfNum = $811B 
+******* 64 Label(s) *******
+bytesInLine = $82E0 
+checkIfAlpha = $812A 
+checkIfHex = $8136 
+checkIfNum = $811E 
 checkType = $803C 
 chkTyp = $802E 
 convertImgNumToAddress = $8057 
-convertLoop = $8208 
+convertLoop = $820B 
 convertToData = $8053 
-copyDataloop = $8094 
+copyDataloop = $8097 
 cruncher = $8000 
-dataLines = $8288 
+dataLines = $82E1 
 decodeDigit = $804C 
-devideBy10 = $81DA 
-devideBy10_Binary = $81E8 
-divLoop = $81DC 
-endDiv = $81E7 
+devideBy10 = $81DD 
+devideBy10_Binary = $81EB 
+divLoop = $81DF 
+endDiv = $81EA 
 endOfCMD = $8031 
-endOfHex = $8183 
-endOfLine = $80A9 
-endOfNum = $81B3 
-endOfProgram = $8263 
-endString = $822F 
-findEndOfBasic = $8230 
+endOfHex = $8186 
+endOfLine = $80AC 
+endOfNum = $81B6 
+endOfProgram = $8266 
+endOfString = $82A5 
+endString = $8232 
+findEndOfBasic = $8233 
 finisheDecoding = $8056 
-hasProgram = $8247 
-helpText = $8289 
-hexNum = $8164 
-incLineNum = $810D 
-incSprData = $80FF 
+hasProgram = $824A 
+helpText = $82E2 
+hexNum = $8167 
+incLineNum = $8110 
+incSprData = $8102 
 init = $C000 
+injectREM = $827F 
+injectString = $829A 
 itsNum = $8049 
 lsrLoop = $805C 
-MulBy10 = $81B4 
-newLine = $8071 
-notAlpha = $8130 
-notANumber = $8124 
-notDigit = $81B3 
+MulBy10 = $81B7 
+newLine = $8074 
+notAlpha = $8133 
+notANumber = $8127 
+notDigit = $81B6 
 notSprite = $8037 
 numError = $8056 
-numToAscii = $8203 
-origTexTab = $82D2 
-parseDec = $8184 
-parseHex = $8141 
-paseHexError = $8183 
+numToAscii = $8206 
+origTexTab = $832B 
+parseDec = $8187 
+parseHex = $8144 
+paseHexError = $8186 
 perseError = $8056 
-printHelp = $8222 
-printLoop = $8224 
+printHelp = $8225 
+printLoop = $8227 
 readLoop = $8004 
-readNumber = $818A 
-returnTrue = $8140 
-shiftLeft = $816F 
+readNumber = $818D 
+remString = $82C7 
+returnTrue = $8143 
+shiftLeft = $8172 
 skipSpace = $8034 
 skipSpaces = $8019 
 sprDataToBasic = $8064 
 spriteCMDFound = $8013 
-spriteString = $827C 
-tmpFB = $8285 
-tmpX = $8284 
-tmpY = $8283 
+spriteString = $82D5 
+tmpFB = $82DE 
+tmpX = $82DD 
+tmpY = $82DC 
 
 ******* 8 Unused label(s) *******
 @divLoop
